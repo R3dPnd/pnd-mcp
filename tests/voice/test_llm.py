@@ -113,7 +113,7 @@ class TestToolCalling:
             _mock_response(content="Here are the projects."),
         ]
         mock_mcp = MagicMock()
-        mock_mcp.call_tool.return_value = "project-a, project-b"
+        mock_mcp.call_tool_with_follow_ups.return_value = [("list_projects", "project-a, project-b")]
 
         with patch("voice.llm.ollama.requests.post", side_effect=responses):
             from voice.llm.ollama import generate_response
@@ -121,17 +121,49 @@ class TestToolCalling:
                                        tools=[{"name": "list_projects"}],
                                        mcp=mock_mcp)
 
-        mock_mcp.call_tool.assert_called_once_with("list_projects", {})
+        mock_mcp.call_tool_with_follow_ups.assert_called_once_with("list_projects", {}, None)
         assert result == "Here are the projects."
 
+    def test_follow_up_results_each_become_their_own_tool_message(self):
+        """MCPManager.call_tool_with_follow_ups may return more than one
+        (name, result) pair (the primary call plus any configured
+        follow-ups, e.g. godot's create_script -> get_editor_errors) — every
+        pair should become its own 'tool' message, in order, same as if the
+        model had called each one itself."""
+        tool_call = {"function": {"name": "create_script", "arguments": {}}}
+        responses = [
+            _mock_response(content="", tool_calls=[tool_call]),
+            _mock_response(content="Done, no errors."),
+        ]
+        mock_mcp = MagicMock()
+        mock_mcp.call_tool_with_follow_ups.return_value = [
+            ("create_script", '{"created": true}'),
+            ("get_editor_errors", '{"error_count": 0, "errors": []}'),
+        ]
+
+        with patch("voice.llm.ollama.requests.post", side_effect=responses) as mock_post:
+            from voice.llm.ollama import generate_response
+            result = generate_response("Create a script", tools=[{}], mcp=mock_mcp)
+
+        assert result == "Done, no errors."
+        second_call_messages = mock_post.call_args_list[1][1]["json"]["messages"]
+        tool_messages = [m for m in second_call_messages if m.get("role") == "tool"]
+        assert len(tool_messages) == 2
+        assert tool_messages[0]["content"] == '{"created": true}'
+        assert tool_messages[1]["content"] == '{"error_count": 0, "errors": []}'
+
     def test_tool_error_handled_gracefully(self):
+        """call_tool_with_follow_ups itself never raises (MCPManager catches
+        and reports errors as a result string — see its own tests), so this
+        exercises that contract from the loop's side: a returned error
+        string still lets the model see it and answer normally."""
         tool_call = {"function": {"name": "bad_tool", "arguments": {}}}
         responses = [
             _mock_response(content="", tool_calls=[tool_call]),
             _mock_response(content="Something went wrong."),
         ]
         mock_mcp = MagicMock()
-        mock_mcp.call_tool.side_effect = RuntimeError("tool failed")
+        mock_mcp.call_tool_with_follow_ups.return_value = [("bad_tool", "Error calling bad_tool: tool failed")]
 
         with patch("voice.llm.ollama.requests.post", side_effect=responses):
             from voice.llm.ollama import generate_response
@@ -156,10 +188,10 @@ class TestToolCalling:
         # Every response includes a tool call — should bail out after 5 rounds
         responses = [_mock_response(content="loop", tool_calls=[tool_call])] * 10
         mock_mcp = MagicMock()
-        mock_mcp.call_tool.return_value = "result"
+        mock_mcp.call_tool_with_follow_ups.return_value = [("loop_tool", "result")]
 
         with patch("voice.llm.ollama.requests.post", side_effect=responses):
             from voice.llm.ollama import generate_response, _MAX_TOOL_ROUNDS
             result = generate_response("Loop", tools=[{}], mcp=mock_mcp)
 
-        assert mock_mcp.call_tool.call_count == _MAX_TOOL_ROUNDS
+        assert mock_mcp.call_tool_with_follow_ups.call_count == _MAX_TOOL_ROUNDS

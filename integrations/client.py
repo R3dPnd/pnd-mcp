@@ -87,6 +87,17 @@ _META_TOOL_NAMES = {t["function"]["name"] for t in _META_TOOLS}
 _FOCUS_AREA_AWARE_TOOLS = {"open_claude_code", "ask_claude_code", "open_terminal", "save_focus_area_note"}
 
 
+def _filter_tools(tools: list[Any], allowed: list[str] | None) -> list[Any]:
+    """Return only the tools in *allowed* (matched by .name), or every tool
+    if *allowed* is None. A pure function (no I/O, no session) so the
+    mcp.servers[].tools allowlist behavior is unit-testable without mocking
+    the async stdio transport — see _connect_one, the only caller."""
+    if allowed is None:
+        return list(tools)
+    allowed_set = set(allowed)
+    return [t for t in tools if t.name in allowed_set]
+
+
 class MCPManager:
     """Maintains MCP server connections in a background event loop.
 
@@ -315,11 +326,8 @@ class MCPManager:
         # dumps the server's *entire* catalog into the LLM's context on
         # enable_module otherwise (e.g. a 173-tool server). None (the
         # default) keeps prior behavior: expose everything.
-        allowed = cfg.get("tools")
-        exposed = 0
-        for tool in tools:
-            if allowed is not None and tool.name not in allowed:
-                continue
+        exposed_tools = _filter_tools(tools, cfg.get("tools"))
+        for tool in exposed_tools:
             self._tool_map[tool.name] = name
             self._tools.append({
                 "type": "function",
@@ -329,9 +337,8 @@ class MCPManager:
                     "parameters": tool.inputSchema,
                 },
             })
-            exposed += 1
         self._sessions[name] = session
-        print(f"[mcp] Connected to '{name}' — {exposed}/{len(tools)} tool(s) exposed", flush=True)
+        print(f"[mcp] Connected to '{name}' — {len(exposed_tools)}/{len(tools)} tool(s) exposed", flush=True)
 
     async def _disconnect_one(self, name: str) -> None:
         self._sessions.pop(name, None)
