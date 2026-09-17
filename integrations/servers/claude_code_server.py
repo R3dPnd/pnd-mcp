@@ -6,8 +6,12 @@ subscription — never the billed Anthropic API.
 
 Exposed tools:
   list_projects      — return configured (or auto-discovered) git repos
-  open_claude_code   — open a new Terminal running `claude` in a project directory
-  ask_claude_code    — run Claude Code non-interactively and return its response
+  open_claude_code   — open/resume a Claude Code session in a project, sent to
+                       the dashboard's watchable terminal (or a native
+                       Terminal.app window if the dashboard isn't running)
+  ask_claude_code    — same as open_claude_code (a one-line delegate) — kept
+                       as a separate tool name since "ask" reads more
+                       naturally for a question than "open" does
   ask_claude         — route a query to Claude for deep reasoning/analysis
   web_search         — current/up-to-date info via Claude's built-in web search
 """

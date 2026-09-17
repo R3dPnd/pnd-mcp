@@ -2,6 +2,7 @@
 
 import os
 import pytest
+import requests
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -164,60 +165,96 @@ class TestListProjects:
 # ── ask_claude_code ───────────────────────────────────────────────────────────
 
 class TestAskClaudeCode:
-    def test_returns_stdout_on_success(self):
-        project = {"name": "dev-diary", "path": "/repos/dev-diary"}
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "  The project is a diary app.  "
-        mock_result.stderr = ""
+    """ask_claude_code is now a one-line delegate to open_claude_code (see
+    its own docstring: the answer goes to the dashboard's watchable
+    terminal, not returned directly here) — it used to run `claude`
+    non-interactively via subprocess.run and capture stdout, but that
+    implementation is gone. The tests below used to assert against that
+    old behavior and silently broke when it changed; see TestOpenClaudeCode
+    for coverage of what actually happens now."""
 
-        with patch("integrations.servers.claude_code_server.resolve_project",
-                   return_value=project), \
-             patch("integrations.servers.claude_code_server.subprocess.run",
-                   return_value=mock_result):
+    def test_delegates_to_open_claude_code_with_the_same_arguments(self):
+        with patch("integrations.servers.claude_code_server.open_claude_code",
+                   return_value="Claude Code (dev-diary): It's a diary app.") as mock_open:
             from integrations.servers.claude_code_server import ask_claude_code
-            result = ask_claude_code("dev diary", "Summarise this project")
+            result = ask_claude_code("dev diary", "Summarise this project", "coding")
 
-        assert result == "The project is a diary app."
+        mock_open.assert_called_once_with("dev diary", "Summarise this project", "coding")
+        assert result == "Claude Code (dev-diary): It's a diary app."
 
-    def test_returns_error_message_on_non_zero_exit(self):
-        project = {"name": "dev-diary", "path": "/repos/dev-diary"}
-        mock_result = MagicMock()
-        mock_result.returncode = 1
-        mock_result.stdout = ""
-        mock_result.stderr = "claude: command not found"
 
-        with patch("integrations.servers.claude_code_server.resolve_project",
-                   return_value=project), \
-             patch("integrations.servers.claude_code_server.subprocess.run",
-                   return_value=mock_result):
-            from integrations.servers.claude_code_server import ask_claude_code
-            result = ask_claude_code("dev diary", "Summarise")
-
-        assert "error" in result.lower()
-
-    def test_unknown_project_returns_not_found(self):
+class TestOpenClaudeCode:
+    def test_unknown_project_without_focus_area_lists_available_projects(self):
         with patch("integrations.servers.claude_code_server.resolve_project",
                    return_value=None), \
              patch("integrations.servers.claude_code_server.find_projects",
-                   return_value=[]):
-            from integrations.servers.claude_code_server import ask_claude_code
-            result = ask_claude_code("ghost-project", "Do something")
+                   return_value=[{"name": "dev-diary"}, {"name": "pnd-mcp"}]):
+            from integrations.servers.claude_code_server import open_claude_code
+            result = open_claude_code("ghost-project", "Do something")
 
         assert "not found" in result.lower()
+        assert "dev-diary" in result
+        assert "pnd-mcp" in result
 
-    def test_empty_stdout_returns_empty_response_message(self):
+    def test_unknown_project_with_focus_area_falls_back_to_open_terminal(self):
+        """No git repo matched, but the caller told us which focus area
+        this belongs to — that's not a codebase, so hand off to
+        open_terminal instead of just reporting 'not found'."""
+        with patch("integrations.servers.claude_code_server.resolve_project",
+                   return_value=None), \
+             patch("integrations.servers.claude_code_server.open_terminal",
+                   return_value="terminal opened") as mock_terminal:
+            from integrations.servers.claude_code_server import open_claude_code
+            result = open_claude_code("not-a-project", "chat about the garden", "gardening")
+
+        mock_terminal.assert_called_once_with(task="chat about the garden", focus_area="gardening")
+        assert result == "terminal opened"
+
+    def test_known_project_posts_to_dashboard_terminal_api(self):
         project = {"name": "dev-diary", "path": "/repos/dev-diary"}
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "   "
-        mock_result.stderr = ""
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"output": "It's a diary app.", "settled": True, "continued": False}
 
         with patch("integrations.servers.claude_code_server.resolve_project",
                    return_value=project), \
-             patch("integrations.servers.claude_code_server.subprocess.run",
-                   return_value=mock_result):
-            from integrations.servers.claude_code_server import ask_claude_code
-            result = ask_claude_code("dev diary", "Summarise")
+             patch("integrations.servers.claude_code_server.requests.post",
+                   return_value=mock_resp) as mock_post:
+            from integrations.servers.claude_code_server import open_claude_code
+            result = open_claude_code("dev diary", "Summarise this project")
 
-        assert "empty" in result.lower()
+        assert mock_post.call_args.args[0].endswith("/api/v1/terminals/claude-code")
+        assert mock_post.call_args.kwargs["json"]["project_name"] == "dev-diary"
+        assert result == "Claude Code (dev-diary): It's a diary app."
+
+    def test_dashboard_unreachable_falls_back_to_native_terminal(self):
+        project = {"name": "dev-diary", "path": "/repos/dev-diary"}
+        mock_osa_result = MagicMock(returncode=0, stderr="")
+
+        with patch("integrations.servers.claude_code_server.resolve_project",
+                   return_value=project), \
+             patch("integrations.servers.claude_code_server.requests.post",
+                   side_effect=requests.RequestException("connection refused")), \
+             patch("integrations.servers.claude_code_server.subprocess.run",
+                   return_value=mock_osa_result):
+            from integrations.servers.claude_code_server import open_claude_code
+            result = open_claude_code("dev diary", "Summarise")
+
+        assert "Opened Claude Code in 'dev-diary'" in result
+        assert "Summarise" in result
+
+    def test_native_terminal_osascript_failure_is_reported(self):
+        project = {"name": "dev-diary", "path": "/repos/dev-diary"}
+        mock_osa_result = MagicMock(returncode=1, stderr="osascript: permission denied")
+
+        with patch("integrations.servers.claude_code_server.resolve_project",
+                   return_value=project), \
+             patch("integrations.servers.claude_code_server.requests.post",
+                   side_effect=requests.RequestException("connection refused")), \
+             patch("integrations.servers.claude_code_server.subprocess.run",
+                   return_value=mock_osa_result):
+            from integrations.servers.claude_code_server import open_claude_code
+            result = open_claude_code("dev diary", "")
+
+        assert "failed to open terminal" in result.lower()
+        assert "permission denied" in result.lower()
