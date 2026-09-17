@@ -34,8 +34,7 @@ def _start_orchestrator() -> None:
     global orchestrator
     try:
         from voice.orchestrator import Orchestrator
-        config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-        orchestrator = Orchestrator(config_path)
+        orchestrator = Orchestrator()  # DANN_CONFIG_PATH env var, or see load_config's own default
         orchestrator.run()
     except Exception as exc:
         from voice.event_bus import bus
@@ -97,8 +96,7 @@ async def startup_event() -> None:
     try:
         from voice.config import load_config
         from integrations.client import get_shared_manager
-        config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-        cfg = load_config(config_path)
+        cfg = load_config()  # DANN_CONFIG_PATH env var, or see load_config's own default
         mcp_servers = (cfg.get("mcp") or {}).get("servers") or []
         if mcp_servers:
             await asyncio.to_thread(get_shared_manager().start, mcp_servers)

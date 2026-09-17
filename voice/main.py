@@ -31,8 +31,7 @@ from voice.orchestrator import Orchestrator
 
 
 def main() -> None:
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-    orch = Orchestrator(config_path)
+    orch = Orchestrator()  # DANN_CONFIG_PATH env var, or see load_config's own default
     orch.run()
 
 
