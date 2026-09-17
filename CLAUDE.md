@@ -49,6 +49,7 @@ repo's shared venv and `cwd=runtime/`:
 | Voice agent (full) | `.venv/bin/python -m voice.main` |
 | Backend only (no mic) | `NO_VOICE=1 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000` |
 | UI dev server | `cd ui && npm run dev` (port 3000) |
+| Standalone desktop app | `cd ui && npm run electron:start` — spawns its own backend, no browser tab, no Vite dev server needed |
 
 ## Architecture
 
@@ -67,11 +68,28 @@ integrations/client.py    MCPManager — shared by voice/orchestrator.py and
 app/main.py               FastAPI
   app/api/v1/endpoints/    state, events (WS), logs, metrics, projects,
                            terminals, runs, notes, prompt_builder, voice, chat,
-                           devteam, system, tools
-  app/services/            terminal_service, run_service, chat_service, etc.
+                           devteam, system, resources, tools
+  app/services/            terminal_service, run_service, chat_service,
+                           system_service (host memory/CPU/GPU, Ollama's
+                           loaded model, turn latency — /resources/*), etc.
 
 ui/src/                    React dashboard (port 3000 dev / served from FastAPI prod)
+ui/electron/                Standalone desktop wrapper — spawns its own backend
+                           (see main.cjs's startBackend()) rather than needing a
+                           browser tab or a separately-started server
 ```
+
+## System panel (`/resources/status`, `/resources/turns`)
+
+Host memory/CPU (`psutil`), best-effort NVIDIA GPU (`nvidia-smi`, `None` on machines
+without one — e.g. Apple Silicon), Ollama's currently-loaded model(s) (`GET
+/api/ps` — size, VRAM split, `keep_alive` countdown), and rolling per-turn
+latency. The latency numbers come from the EventBus's `metric` (voice, one per
+pipeline stage) and `chat.turn` (text chat) events, captured by
+`system_service.record_turn_metric` — a separate subscriber from
+`log_service`, which also listens to these same events but only keeps a
+flattened string message, not the numeric fields. `/system` was already taken
+(the dashboard restart endpoint), hence `/resources`.
 
 ## Python venv
 
