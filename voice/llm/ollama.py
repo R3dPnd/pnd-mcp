@@ -166,10 +166,15 @@ def generate_response(
             name = func.get("name", "")
             args = func.get("arguments", {})
             print(f"[mcp] Calling tool '{name}'...", flush=True)
-            try:
-                result = mcp.call_tool(name, args, session_context)
-            except Exception as exc:
-                result = f"Error calling {name}: {exc}"
-            messages.append({"role": "tool", "content": str(result)})
+            # call_tool_with_follow_ups also runs any tools config.yaml's
+            # mcp.servers[].follow_up declares for *name* (e.g. an error
+            # check right after a script edit) — deterministically, rather
+            # than trusting this round's model to remember to ask for it
+            # itself. Each extra result becomes its own tool message, same
+            # as if the model had called it directly.
+            for called_name, result in mcp.call_tool_with_follow_ups(name, args, session_context):
+                if called_name != name:
+                    print(f"[mcp] Follow-up: calling tool '{called_name}'...", flush=True)
+                messages.append({"role": "tool", "content": str(result)})
 
     return msg.get("content", "").strip()

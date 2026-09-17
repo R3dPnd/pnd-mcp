@@ -14,6 +14,13 @@ lifecycles:
                       needs it, and can stop it again afterwards. This is
                       what keeps both the tool list sent to Ollama and the
                       process count small as more modules get added.
+
+An entry can also set `tools: [name, ...]` (expose only that subset instead
+of everything the server reports — see _connect_one) and/or
+`follow_up: {trigger_tool: [tool, ...]}` (after *trigger_tool* runs, also
+run each listed tool automatically, no extra model round required — see
+call_tool_with_follow_ups). Both are optional; omitting either keeps the
+simplest behavior (expose everything, chain nothing).
 """
 
 import asyncio
@@ -102,6 +109,7 @@ class MCPManager:
         self._sessions: dict[str, ClientSession] = {}
         self._tool_map: dict[str, str] = {}              # tool_name -> server_name
         self._tools: list[dict[str, Any]] = []            # Ollama-formatted tool defs, mutated in place
+        self._follow_up: dict[str, list[str]] = {}        # tool_name -> [tool names to auto-call right after]
         self._start_lock = threading.Lock()
         self._started = False
 
@@ -125,6 +133,8 @@ class MCPManager:
         self._thread.start()
         for cfg in server_configs:
             self._configs[cfg["name"]] = cfg
+            for trigger, follow_ups in (cfg.get("follow_up") or {}).items():
+                self._follow_up.setdefault(trigger, []).extend(follow_ups)
 
         always_on = [cfg for cfg in server_configs if cfg.get("always_on")]
         on_demand = [cfg for cfg in server_configs if not cfg.get("always_on")]
@@ -214,6 +224,37 @@ class MCPManager:
         if tool_name in _FOCUS_AREA_AWARE_TOOLS and session_context and session_context.get("focus_area"):
             arguments = {**arguments, "focus_area": session_context["focus_area"]}
         return self._run(self._async_call_tool(tool_name, arguments))
+
+    def call_tool_with_follow_ups(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        session_context: dict[str, Any] | None = None,
+    ) -> list[tuple[str, str]]:
+        """Like call_tool, but also runs any tools a server config declared
+        as a follow_up for *tool_name* (see mcp.servers[].follow_up in
+        config.yaml) — deterministically, not left to the calling LLM's own
+        judgment to remember. Small/fast router models are unreliable at
+        "always call Y after X" instructions given only in a tool's prompt
+        description; this makes the chain happen in code instead. A
+        follow-up's own failure doesn't hide the primary call's result —
+        each is caught and reported independently.
+
+        Returns [(tool_name, result_str), ...], primary call first, in the
+        same order every result would otherwise be appended to the LLM's
+        message history for this round.
+        """
+        try:
+            primary_result = self.call_tool(tool_name, arguments, session_context)
+        except Exception as exc:
+            primary_result = f"Error calling {tool_name}: {exc}"
+        results = [(tool_name, primary_result)]
+        for follow_up_name in self._follow_up.get(tool_name, []):
+            try:
+                results.append((follow_up_name, self.call_tool(follow_up_name, {}, session_context)))
+            except Exception as exc:
+                results.append((follow_up_name, f"Error calling {follow_up_name}: {exc}"))
+        return results
 
     # ------------------------------------------------------------------
     # Internal helpers
