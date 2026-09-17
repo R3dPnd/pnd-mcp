@@ -30,13 +30,26 @@ function waitForBackend (retries = 40, interval = 500) {
 }
 
 function startBackend () {
-  const root = path.join(__dirname, '..', '..')
-  const python = path.join(root, '.venv', 'Scripts', 'python.exe')
+  // __dirname is <persona-repo>/runtime/ui/electron — this file (main.cjs)
+  // lives inside the pnd-mcp runtime/ submodule, but the shared venv and
+  // config.yaml live one level further up, in the *persona* repo's root
+  // (same convention dann.py and config.yaml's mcp.servers[].command use
+  // elsewhere — see dann-of-thursday/CLAUDE.md). cwd stays at runtime/ so
+  // `app.main:app` resolves; only the venv/config lookups reach up further.
+  const runtimeRoot = path.join(__dirname, '..', '..')
+  const personaRoot = path.join(runtimeRoot, '..')
+  const venvBin = process.platform === 'win32' ? 'Scripts' : 'bin'
+  const venvPython = process.platform === 'win32' ? 'python.exe' : 'python'
+  const python = path.join(personaRoot, '.venv', venvBin, venvPython)
 
   backendProcess = spawn(
     python,
     ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(BACKEND_PORT)],
-    { cwd: root, windowsHide: true }
+    {
+      cwd: runtimeRoot,
+      windowsHide: true,
+      env: { ...process.env, DANN_CONFIG_PATH: path.join(personaRoot, 'config.yaml') },
+    }
   )
 
   backendProcess.stdout.on('data', (d) => process.stdout.write(d))

@@ -1,4 +1,4 @@
-import type { DevTeamJob, FocusArea, FocusAreaNote, LogEntry, MetricSummary, Module, Project, PromptBuilderResult, StateSnapshot, TerminalSession, WorkStream } from '../types'
+import type { DevTeamJob, FocusArea, FocusAreaNote, LogEntry, MetricSummary, Module, Project, PromptBuilderResult, ResourceStatus, StateSnapshot, TerminalSession, TurnRecord, WorkStream } from '../types'
 
 const BASE = '/api/v1'
 
@@ -56,6 +56,11 @@ export const api = {
 
   getByProject: () =>
     get<{ project: string; total: number; ok: number; error: number; empty: number; avg_response_ms: number | null }[]>('/metrics/by-project'),
+
+  getResourceStatus: () => get<ResourceStatus>('/resources/status'),
+
+  getRecentTurns: (limit = 20) =>
+    get<{ turns: TurnRecord[] }>(`/resources/turns?limit=${limit}`).then(r => r.turns),
 
   listTerminals: () => get<TerminalSession[]>('/terminals'),
 

@@ -84,10 +84,11 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 @app.on_event("startup")
 async def startup_event() -> None:
     from voice.event_bus import bus
-    from app.services import history_service, log_service, metrics_service
+    from app.services import history_service, log_service, metrics_service, system_service
     bus.subscribe(metrics_service.record_metric)
     bus.subscribe(log_service.record_event)
     bus.subscribe(history_service.record_event)
+    bus.subscribe(system_service.record_turn_metric)
 
     # Start the shared MCP manager unconditionally — text chat (app/services/
     # chat_service.py) needs MCP tools even when NO_VOICE=1 skips the voice

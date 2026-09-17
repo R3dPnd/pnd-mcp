@@ -21,3 +21,4 @@ google-auth-oauthlib>=1.2.0
 torch>=2.0.0  # scripts/wakeword/train_wakeword.py — trains a custom openWakeWord model
 onnx>=1.22.0  # scripts/wakeword/train_wakeword.py — torch.onnx.export(..., dynamo=False) needs this to serialize
 pytest>=8.0.0  # tests/ — run via `.venv/bin/python -m pytest`
+psutil>=6.0.0  # app/services/system_service.py — host memory/CPU stats for the System panel

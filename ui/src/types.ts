@@ -154,3 +154,68 @@ export interface LogEntry {
   message: string
   detail?: string
 }
+
+export interface MemoryStatus {
+  total_bytes: number
+  used_bytes: number
+  available_bytes: number
+  percent: number
+}
+
+export interface CpuStatus {
+  percent: number
+  per_core_percent: number[]
+  core_count: number
+}
+
+export interface GpuInfo {
+  name: string
+  utilization_percent: number
+  memory_used_mb: number
+  memory_total_mb: number
+}
+
+export interface GpuStatus {
+  gpus: GpuInfo[]
+}
+
+export interface OllamaLoadedModel {
+  name: string
+  model: string
+  size: number
+  size_vram: number
+  expires_at: string
+  [key: string]: unknown // Ollama's /api/ps also returns details/digest/etc. — passed through, not all rendered
+}
+
+export interface OllamaStatus {
+  models: OllamaLoadedModel[]
+}
+
+export interface TurnStats {
+  sample_count: number
+  avg_stt_ms: number | null
+  avg_llm_ms: number | null
+  avg_tts_ms: number | null
+  avg_code_ms: number | null
+  avg_chat_latency_ms: number | null
+}
+
+export interface ResourceStatus {
+  memory: MemoryStatus
+  cpu: CpuStatus
+  gpu: GpuStatus | null
+  ollama: OllamaStatus | null
+  turns: TurnStats
+}
+
+export interface TurnRecord {
+  event_type: 'metric' | 'chat.turn'
+  recorded_at: number
+  stt_ms?: number
+  llm_ms?: number
+  tts_ms?: number
+  code_ms?: number
+  latency_ms?: number
+  [key: string]: unknown
+}

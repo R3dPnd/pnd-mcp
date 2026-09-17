@@ -223,3 +223,6 @@ deploy/cloudflared/config.yml
 
 # Local secrets / environment overrides
 .env
+
+# macOS
+.DS_Store

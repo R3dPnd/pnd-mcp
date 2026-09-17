@@ -14,6 +14,7 @@ import { FocusMode } from './components/focus/FocusMode'
 
 // Lazy-load heavy components
 const MetricsPage = lazy(() => import('./components/MetricsPage'))
+const SystemPanel = lazy(() => import('./components/SystemPanel'))
 const NotesPanel = lazy(() => import('./components/NotesPanel').then(m => ({ default: m.NotesPanel })))
 const ChatPanel = lazy(() => import('./components/ChatPanel')) // the main "DANN" tab: chat + per-focus-area terminal
 
@@ -23,13 +24,14 @@ const ChatPanel = lazy(() => import('./components/ChatPanel')) // the main "DANN
 // since the two panels that used to open one (Projects, Notes) either no
 // longer exist or no longer map onto a focus area.
 
-type Tab = 'dann' | 'focus' | 'modules' | 'notes' | 'metrics'
+type Tab = 'dann' | 'focus' | 'modules' | 'notes' | 'metrics' | 'system'
 
 function tabLabel(t: Tab): string {
   if (t === 'dann') return 'DANN'
   if (t === 'focus') return 'Focus Areas'
   if (t === 'modules') return 'Modules'
   if (t === 'notes') return 'Notes'
+  if (t === 'system') return 'System'
   return 'Metrics'
 }
 
@@ -42,7 +44,7 @@ export default function App() {
   const focusMode = useDannStore(s => s.focusMode)
   const setFocusMode = useDannStore(s => s.setFocusMode)
 
-  const tabs: Tab[] = ['dann', 'focus', 'modules', 'notes', 'metrics']
+  const tabs: Tab[] = ['dann', 'focus', 'modules', 'notes', 'metrics', 'system']
   const [activeTabId, setActiveTabId] = useState<Tab>('dann')
 
   return (
@@ -121,6 +123,12 @@ export default function App() {
         <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'metrics' ? '' : 'opacity-0 pointer-events-none'}`}>
           <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
             <MetricsPage />
+          </Suspense>
+        </div>
+
+        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'system' ? '' : 'opacity-0 pointer-events-none'}`}>
+          <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
+            <SystemPanel />
           </Suspense>
         </div>
       </main>
