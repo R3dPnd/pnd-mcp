@@ -269,7 +269,16 @@ class MCPManager:
             print(f"[mcp] Failed to connect to '{name}': {exc}", flush=True)
             raise
 
+        # Optional allowlist (cfg["tools"]) — without it, every tool the
+        # server reports gets exposed, which is fine for a small module but
+        # dumps the server's *entire* catalog into the LLM's context on
+        # enable_module otherwise (e.g. a 173-tool server). None (the
+        # default) keeps prior behavior: expose everything.
+        allowed = cfg.get("tools")
+        exposed = 0
         for tool in tools:
+            if allowed is not None and tool.name not in allowed:
+                continue
             self._tool_map[tool.name] = name
             self._tools.append({
                 "type": "function",
@@ -279,8 +288,9 @@ class MCPManager:
                     "parameters": tool.inputSchema,
                 },
             })
+            exposed += 1
         self._sessions[name] = session
-        print(f"[mcp] Connected to '{name}' — {len(tools)} tool(s) available", flush=True)
+        print(f"[mcp] Connected to '{name}' — {exposed}/{len(tools)} tool(s) exposed", flush=True)
 
     async def _disconnect_one(self, name: str) -> None:
         self._sessions.pop(name, None)
