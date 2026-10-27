@@ -1,5 +1,7 @@
 """Unit tests for the BJJ MCP server tools."""
 
+from types import SimpleNamespace
+
 from integrations.servers.bjj_server import (
     add_training_note,
     list_sessions,
@@ -17,13 +19,17 @@ class TestLogSession:
         assert "gi" in result
         assert "90" in result
 
-    def test_filters_by_type(self, tmp_dann_home):
+    def test_filters_by_type(self, tmp_dann_home, monkeypatch):
+        # Session ids are random hex — pin one containing "90" so the check
+        # below can't pass or fail by chance on the id.
+        monkeypatch.setattr("integrations.servers.bjj_server.uuid.uuid4",
+                            lambda: SimpleNamespace(hex="ab90cdef" * 4))
         log_session("gi", duration_minutes=90)
         log_session("no-gi", duration_minutes=60)
 
         result = list_sessions(session_type="no-gi")
         assert "no-gi" in result
-        assert "90" not in result
+        assert "90 min" not in result
 
     def test_empty_list_message(self, tmp_dann_home):
         assert list_sessions() == "No sessions found."
