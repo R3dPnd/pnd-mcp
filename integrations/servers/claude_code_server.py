@@ -14,6 +14,8 @@ Exposed tools:
                        naturally for a question than "open" does
   ask_claude         — route a query to Claude for deep reasoning/analysis
   web_search         — current/up-to-date info via Claude's built-in web search
+                       (both delegate to claude_server, which a non-coding
+                       persona can enable on its own)
 """
 
 import os
@@ -24,6 +26,9 @@ from pathlib import Path
 import requests
 from mcp.server.fastmcp import FastMCP
 
+from integrations.servers import claude_server
+from shared.persona import get_persona
+
 mcp = FastMCP("claude-code")
 
 # open_claude_code targets the FastAPI dashboard's own Claude Code terminal
@@ -33,7 +38,11 @@ mcp = FastMCP("claude-code")
 # via the focus_area passed alongside. Falls back to a native Terminal.app
 # window when the dashboard isn't running, e.g. plain `python -m voice.main`
 # with no API.
-_API_BASE_URL = os.environ.get("DANN_API_BASE_URL", "http://localhost:8000")
+_API_BASE_URL = (
+    os.environ.get("PND_API_BASE_URL")
+    or os.environ.get("DANN_API_BASE_URL")
+    or f"http://localhost:{get_persona().api_port}"
+)
 
 # Directories that are never git repos and may be very large — skip them entirely
 _SKIP_DIRS = {
@@ -315,33 +324,7 @@ def ask_claude(question: str, context: str = "", depth: str = "deep") -> str:
         depth: "fast" for a quick/cheap answer (haiku), "deep" (default) for
             the CLI's normal model — better for hard reasoning or analysis.
     """
-    prompt = f"{context.strip()}\n\n{question.strip()}" if context.strip() else question.strip()
-
-    # Append TTS formatting instruction so the response is speakable
-    full_prompt = (
-        f"{prompt}\n\n"
-        "Answer in 1-3 concise spoken sentences. "
-        "No markdown, bullet points, or formatting — your response will be read aloud."
-    )
-
-    cmd = ["claude"]
-    if depth == "fast":
-        cmd += ["--model", "haiku"]
-    cmd += ["-p", full_prompt]
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-
-    if result.returncode != 0:
-        err = result.stderr.strip()
-        return f"Claude returned an error: {err or 'unknown error'}"
-
-    output = result.stdout.strip()
-    return output if output else "Claude returned an empty response."
+    return claude_server.ask_claude(question, context, depth)
 
 
 @mcp.tool()
@@ -354,31 +337,7 @@ def web_search(query: str) -> str:
     Args:
         query: What to search for / the question to answer using the web.
     """
-    prompt = (
-        f"Search the web for: {query.strip()}\n\n"
-        "Answer in 1-3 concise spoken sentences based on what you find. "
-        "No markdown, bullet points, or formatting — your response may be read aloud."
-    )
-
-    try:
-        # --allowedTools is variadic (commander.js) — it greedily consumes
-        # every following arg as another tool name, including the prompt,
-        # unless the prompt comes first.
-        result = subprocess.run(
-            ["claude", "-p", prompt, "--allowedTools", "WebSearch"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-    except subprocess.TimeoutExpired:
-        return "Web search timed out."
-
-    if result.returncode != 0:
-        err = result.stderr.strip()
-        return f"Web search error: {err or 'unknown error'}"
-
-    output = result.stdout.strip()
-    return output if output else "No answer found."
+    return claude_server.web_search(query)
 
 
 if __name__ == "__main__":

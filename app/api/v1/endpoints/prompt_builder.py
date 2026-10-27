@@ -1,16 +1,16 @@
 """POST /api/v1/prompt-builder — consolidate thoughts/goals/notes via Claude.
 
-Uses the locally-authenticated `claude` CLI (Claude Code) so no separate
-ANTHROPIC_API_KEY is required.  Falls back to the anthropic SDK if the CLI
-is not available but the SDK + key are present.
+Uses the locally-authenticated `claude` CLI (Claude Code) via
+shared/claude_cli.py, so it runs on the user's subscription. There is
+deliberately no fallback to the billed anthropic SDK.
 """
 
 import json
-import shutil
-import subprocess
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from shared.claude_cli import run_claude
 
 router = APIRouter()
 
@@ -55,34 +55,6 @@ Respond with ONLY valid JSON in this exact format, no markdown fences:
 }}"""
 
 
-def _call_via_cli(prompt: str) -> str:
-    """Call the locally-installed `claude` CLI in print mode."""
-    claude_bin = shutil.which("claude")
-    if not claude_bin:
-        raise RuntimeError("claude CLI not found on PATH")
-    result = subprocess.run(
-        [claude_bin, "-p", prompt],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"claude CLI exited {result.returncode}: {result.stderr.strip()[:400]}")
-    return result.stdout.strip()
-
-
-def _call_via_sdk(prompt: str) -> str:
-    """Call Claude via the anthropic SDK (requires ANTHROPIC_API_KEY)."""
-    import anthropic
-    client = anthropic.Anthropic()
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return message.content[0].text.strip()
-
-
 def _parse_response(text: str) -> dict:
     """Strip optional markdown fences and parse JSON."""
     if text.startswith("```"):
@@ -116,31 +88,13 @@ async def build_prompt(req: PromptBuilderRequest) -> PromptBuilderResponse:
     consolidated = "\n\n".join(sections)
     prompt = _META_PROMPT.format(consolidated=consolidated)
 
-    # Try the local Claude Code CLI first, then fall back to the SDK
-    text: str | None = None
-    last_error: str = ""
-
-    if shutil.which("claude"):
-        try:
-            text = _call_via_cli(prompt)
-        except Exception as exc:
-            last_error = str(exc)
-
-    if text is None:
-        try:
-            import anthropic  # noqa: F401
-            text = _call_via_sdk(prompt)
-        except ImportError:
-            pass
-        except Exception as exc:
-            last_error = str(exc)
-
-    if text is None:
+    result = run_claude(prompt, timeout=120)
+    if not result.ok:
         raise HTTPException(
             status_code=503,
-            detail=f"No Claude backend available. CLI error: {last_error}. "
-                   "Ensure `claude` CLI is on PATH (Claude Code) or set ANTHROPIC_API_KEY.",
+            detail=f"Claude CLI unavailable: {result.error}. Ensure `claude` (Claude Code) is on PATH and signed in.",
         )
+    text = result.text
 
     try:
         data = _parse_response(text)

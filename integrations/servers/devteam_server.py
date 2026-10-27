@@ -34,6 +34,7 @@ from mcp.server.fastmcp import FastMCP
 
 from integrations.servers._store import data_home, load_json, save_json
 from integrations.servers.claude_code_server import find_projects, resolve_project
+from shared.claude_cli import claude_env
 
 mcp = FastMCP("devteam")
 
@@ -125,6 +126,7 @@ def start_dev_pipeline(project_name: str, task: str) -> str:
             # subprocess/cwd, not a global setting.
             ["claude", "-p", "--permission-mode", "acceptEdits", prompt],
             cwd=project["path"],
+            env=claude_env(),
             stdout=log_file,
             stderr=subprocess.STDOUT,
         )

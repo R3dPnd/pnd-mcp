@@ -32,7 +32,6 @@ Linux/Mac: uses ptyprocess.
 
 from __future__ import annotations
 
-import os
 import queue
 import re
 import sys
@@ -40,6 +39,8 @@ import threading
 import time
 import uuid
 from typing import Any
+
+from shared.claude_cli import claude_env
 
 _WINDOWS = sys.platform == "win32"
 
@@ -99,7 +100,7 @@ class TerminalSession:
 
     def start(self, rows: int = 24, cols: int = 80, command: str = "claude") -> None:
         import shlex
-        env = {**os.environ, "TERM": "xterm-256color", "COLORTERM": "truecolor"}
+        env = {**claude_env(), "TERM": "xterm-256color", "COLORTERM": "truecolor"}
         if _WINDOWS:
             self._proc = winpty.PtyProcess.spawn(
                 command,
