@@ -4,9 +4,9 @@
 One-time setup required before this module works — see docs/schedule-setup.md:
   1. Create a Google Cloud project, enable the Calendar API.
   2. Create an OAuth client ID (type: Desktop app), download the JSON.
-  3. Save it as ~/.dann/google_credentials.json.
+  3. Save it as <persona data dir>/google_credentials.json.
   4. The first tool call opens a browser for one-time consent; the
-     resulting token is cached at ~/.dann/google_token.json so you're not
+     resulting token is cached at <persona data dir>/google_token.json so you're not
      re-prompted after that.
 
 Exposed tools:
@@ -16,15 +16,23 @@ Exposed tools:
   delete_event  — delete an event by id
 """
 import datetime as dt
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from integrations.servers._store import dann_home
+from integrations.servers._store import data_home
 
 mcp = FastMCP("schedule")
 
-_CREDENTIALS_FILE = dann_home() / "google_credentials.json"
-_TOKEN_FILE = dann_home() / "google_token.json"
+
+def _credentials_file() -> Path:
+    return data_home() / "google_credentials.json"
+
+
+def _token_file() -> Path:
+    return data_home() / "google_token.json"
+
+
 _SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 _service = None
@@ -36,9 +44,9 @@ def _get_service():
     if _service is not None:
         return _service
 
-    if not _CREDENTIALS_FILE.exists():
+    if not _credentials_file().exists():
         raise RuntimeError(
-            f"No Google OAuth credentials at {_CREDENTIALS_FILE}. "
+            f"No Google OAuth credentials at {_credentials_file()}. "
             "See docs/schedule-setup.md to set up the schedule module."
         )
 
@@ -48,15 +56,15 @@ def _get_service():
     from googleapiclient.discovery import build
 
     creds = None
-    if _TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(_TOKEN_FILE), _SCOPES)
+    if _token_file().exists():
+        creds = Credentials.from_authorized_user_file(str(_token_file()), _SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(str(_CREDENTIALS_FILE), _SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(str(_credentials_file()), _SCOPES)
             creds = flow.run_local_server(port=0)
-        _TOKEN_FILE.write_text(creds.to_json())
+        _token_file().write_text(creds.to_json())
 
     _service = build("calendar", "v3", credentials=creds)
     return _service

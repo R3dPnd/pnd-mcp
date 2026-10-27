@@ -9,7 +9,7 @@ bound to a focus area (config.yaml's focus_areas: — see
 shared/focus_areas_config.py and shared/focus_areas_store.py) and keeps its
 own conversation history; many can run in parallel.
 
-Persisted to ~/.dann/work_streams.json. Also emits the same EventBus event
+Persisted to <persona data dir>/work_streams.json. Also emits the same EventBus event
 types voice turns emit (turn.start/turn.llm/metric) so the existing
 metrics/logs dashboard panels pick up text-chat activity for free.
 """
@@ -23,13 +23,12 @@ from typing import Any
 from shared.agents_config import build_routing_prompt
 from shared.focus_areas_config import build_focus_areas_prompt
 from shared.focus_areas_store import read_focus_area_context
+from shared.persona import data_dir
 from voice.config import load_config
 from voice.event_bus import bus
 from voice.llm.ollama import generate_response
 from integrations.client import get_shared_manager
 
-_DANN_DIR = Path.home() / ".dann"
-_STREAMS_FILE = _DANN_DIR / "work_streams.json"
 _MAX_HISTORY = 200  # messages kept per stream; oldest trimmed beyond this
 _DEFAULT_CHAT_MAX_TOKENS = 400  # text doesn't need voice's "1-2 sentences" brevity
 
@@ -42,10 +41,10 @@ def _ensure_loaded() -> None:
     global _loaded
     if _loaded:
         return
-    _DANN_DIR.mkdir(parents=True, exist_ok=True)
-    if _STREAMS_FILE.exists():
+    streams_file = _streams_file()
+    if streams_file.exists():
         try:
-            data = json.loads(_STREAMS_FILE.read_text())
+            data = json.loads(streams_file.read_text())
             for s in data:
                 _streams[s["id"]] = s
         except (json.JSONDecodeError, OSError):
@@ -53,8 +52,12 @@ def _ensure_loaded() -> None:
     _loaded = True
 
 
+def _streams_file() -> Path:
+    return data_dir() / "work_streams.json"
+
+
 def _persist() -> None:
-    _STREAMS_FILE.write_text(json.dumps(list(_streams.values()), indent=2))
+    _streams_file().write_text(json.dumps(list(_streams.values()), indent=2))
 
 
 class UnknownStreamError(KeyError):

@@ -31,6 +31,8 @@ from typing import Any
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
+from shared.persona import data_dir
+
 _log = logging.getLogger(__name__)
 
 _META_TOOLS: list[dict[str, Any]] = [
@@ -96,6 +98,14 @@ def _filter_tools(tools: list[Any], allowed: list[str] | None) -> list[Any]:
         return list(tools)
     allowed_set = set(allowed)
     return [t for t in tools if t.name in allowed_set]
+
+
+def server_env(cfg: dict[str, Any]) -> dict[str, str]:
+    """Env for one tool-server subprocess. The mcp stdio client only passes a
+    small allowlist of the parent's env (PATH, HOME, ...), so a server can't
+    find config.yaml to learn the persona data dir on its own — inject it.
+    An explicit PND_DATA_DIR in the server's own `env:` block wins."""
+    return {"PND_DATA_DIR": str(data_dir()), **(cfg.get("env") or {})}
 
 
 class MCPManager:
@@ -288,7 +298,7 @@ class MCPManager:
             params = StdioServerParameters(
                 command=cfg["command"],
                 args=cfg.get("args", []),
-                env=cfg.get("env"),
+                env=server_env(cfg),
             )
             async with stdio_client(params) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:

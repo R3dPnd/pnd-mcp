@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP server for tracking your own BJJ training — sessions, techniques, and notes.
 
-Local-only storage (~/.dann/bjj.json) — no external account needed. Like the
+Local-only storage (<persona data dir>/bjj.json, default ~/.dann) — no external account needed. Like the
 gardening module, this deliberately doesn't try to answer general BJJ
 questions (how to escape mount, rules, etc.) — the base LLM already knows
 that. What it adds is a record of *your* training: what you drilled, how

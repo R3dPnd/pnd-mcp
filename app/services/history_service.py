@@ -2,7 +2,8 @@
 Conversation history persistence.
 
 Subscribes to EventBus events and assembles complete turn records (user text +
-Dann response + pipeline latencies), writing each to ~/.dann/history.jsonl.
+assistant response + pipeline latencies), writing each to
+<persona data dir>/history.jsonl.
 Provides a query helper for the /api/v1/history endpoint.
 """
 from __future__ import annotations
@@ -14,8 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_DANN_DIR = Path.home() / ".dann"
-_HISTORY_FILE = _DANN_DIR / "history.jsonl"
+from shared.persona import data_dir
+
 _MAX_IN_MEMORY = 500
 
 _records: deque[dict[str, Any]] = deque(maxlen=_MAX_IN_MEMORY)
@@ -24,8 +25,12 @@ _lock = threading.Lock()
 _disk_loaded = False
 
 
+def _history_file() -> Path:
+    return data_dir() / "history.jsonl"
+
+
 def _ensure_dir() -> None:
-    _DANN_DIR.mkdir(parents=True, exist_ok=True)
+    data_dir()  # creates it
 
 
 def record_event(event_type: str, payload: dict[str, Any]) -> None:
@@ -82,7 +87,7 @@ def record_event(event_type: str, payload: dict[str, Any]) -> None:
 
         _ensure_dir()
         try:
-            with open(_HISTORY_FILE, "a", encoding="utf-8") as fh:
+            with open(_history_file(), "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(record) + "\n")
         except OSError:
             pass
@@ -92,11 +97,11 @@ def record_event(event_type: str, payload: dict[str, Any]) -> None:
 
 
 def _load_from_disk() -> list[dict[str, Any]]:
-    if not _HISTORY_FILE.exists():
+    if not _history_file().exists():
         return []
     rows: list[dict[str, Any]] = []
     try:
-        with open(_HISTORY_FILE, encoding="utf-8") as fh:
+        with open(_history_file(), encoding="utf-8") as fh:
             for line in fh:
                 stripped = line.strip()
                 if stripped:

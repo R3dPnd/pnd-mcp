@@ -2,7 +2,7 @@
 a work stream's/terminal's system prompt whenever that focus area is
 active, distinct from focus_areas_config.py's always-on routing hint.
 
-Lives under ~/.dann/focus_areas/<name>/ — the same "personal, non-git data"
+Lives under <persona data dir>/focus_areas/<name>/ (default ~/.dann) — the same "personal, non-git data"
 home as integrations/servers/_store.py — rather than in config.yaml, since
 it's free-form content the user (or Dann) writes to, not structured config.
 
@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from integrations.servers._store import dann_home
+from integrations.servers._store import data_home
 
 _TEXT_SUFFIXES = {".md", ".markdown", ".txt"}
 
@@ -65,7 +65,7 @@ def focus_area_dir(name: str) -> Path:
     """The focus area's own directory — its terminal's cwd, and where its
     notes live. Auto-created on first use, and marked trusted for Claude
     Code (see _mark_trusted)."""
-    d = dann_home() / "focus_areas" / name
+    d = data_home() / "focus_areas" / name
     d.mkdir(parents=True, exist_ok=True)
     _mark_trusted(d)
     return d

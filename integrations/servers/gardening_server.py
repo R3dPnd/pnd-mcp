@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP server for tracking your own garden — plantings, harvests, and notes.
 
-Local-only storage (~/.dann/gardening.json) — no external account needed.
+Local-only storage (<persona data dir>/gardening.json, default ~/.dann) — no external account needed.
 This deliberately doesn't try to answer general gardening questions (frost
 dates, pest identification, etc.) — the base LLM already knows that. What it
 adds is the thing a stock LLM can't have: a record of what *you* planted,

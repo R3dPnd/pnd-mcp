@@ -129,3 +129,16 @@ class TestCallToolWithFollowUps:
 
         for call in mgr.call_tool.call_args_list:
             assert call.args[2] == ctx
+
+
+# ── server_env: persona data dir injected into MCP subprocesses ───────────────
+
+def test_server_env_injects_data_dir(tmp_data_dir):
+    from integrations.client import server_env
+    assert server_env({"name": "x"}) == {"PND_DATA_DIR": str(tmp_data_dir)}
+
+
+def test_server_env_keeps_existing_env_and_explicit_value_wins(tmp_data_dir):
+    from integrations.client import server_env
+    env = server_env({"env": {"PYTHONPATH": "/p", "PND_DATA_DIR": "/explicit"}})
+    assert env == {"PYTHONPATH": "/p", "PND_DATA_DIR": "/explicit"}

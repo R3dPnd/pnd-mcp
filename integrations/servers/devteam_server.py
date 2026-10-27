@@ -8,8 +8,8 @@ pipeline as a background `claude -p` process (real, unsupervised code
 changes — not a Q&A call) and lets you check back on it in a later turn
 instead of making Dann wait.
 
-Job state and logs live locally (~/.dann/devteam_jobs.json and
-~/.dann/devteam_logs/<job_id>.log) — no external account needed. Project
+Job state and logs live locally (<persona data dir>/devteam_jobs.json and
+<persona data dir>/devteam_logs/<job_id>.log) — no external account needed. Project
 resolution is delegated to claude_code_server (the canonical source of
 Dann's project list) so the two modules can't drift out of sync.
 
@@ -32,7 +32,7 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from integrations.servers._store import dann_home, load_json, save_json
+from integrations.servers._store import data_home, load_json, save_json
 from integrations.servers.claude_code_server import find_projects, resolve_project
 
 mcp = FastMCP("devteam")
@@ -62,7 +62,7 @@ def _save(jobs: list[dict]) -> None:
 
 
 def _log_dir() -> Path:
-    d = dann_home() / _LOG_DIR_NAME
+    d = data_home() / _LOG_DIR_NAME
     d.mkdir(parents=True, exist_ok=True)
     return d
 

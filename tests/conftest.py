@@ -4,11 +4,17 @@ import pytest
 
 
 @pytest.fixture()
-def tmp_dann_home(tmp_path, monkeypatch):
-    """Point integrations.servers._store's ~/.dann at a scratch dir so MCP module
-    tests never touch the real one."""
-    monkeypatch.setattr("integrations.servers._store._DANN_HOME", tmp_path)
+def tmp_data_dir(tmp_path, monkeypatch):
+    """Point the persona data dir (shared.persona.data_dir, default ~/.dann) at
+    a scratch dir so tests never touch the real one."""
+    monkeypatch.setenv("PND_DATA_DIR", str(tmp_path))
     return tmp_path
+
+
+@pytest.fixture()
+def tmp_dann_home(tmp_data_dir):
+    """Pre-persona name for tmp_data_dir, kept so existing tests read as before."""
+    return tmp_data_dir
 
 
 @pytest.fixture()

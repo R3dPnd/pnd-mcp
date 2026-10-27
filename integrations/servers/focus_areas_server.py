@@ -2,7 +2,7 @@
 """MCP server for saving notes to a focus area's own context directory.
 
 See shared/focus_areas_store.py — each focus area has a directory under
-~/.dann/focus_areas/<name>/ whose contents are automatically folded into
+<persona data dir>/focus_areas/<name>/ whose contents are automatically folded into
 every turn's system prompt for that focus area's work streams (see
 app/services/chat_service.py). Reading is already automatic; this is what
 lets Dann write to it directly, without the user going through a text

@@ -1,7 +1,7 @@
 """Read-only access to devteam pipeline job records for the dashboard.
 
 Jobs are written by integrations/servers/devteam_server.py's own tool calls
-(start_dev_pipeline/check_dev_pipeline/etc.) into ~/.dann/devteam_jobs.json.
+(start_dev_pipeline/check_dev_pipeline/etc.) into <persona data dir>/devteam_jobs.json.
 This module only reads that file — it does not attempt to refresh a job's
 status (Popen polling / PID-liveness), since that logic only works inside
 the MCP server's own process. Status here is whatever was last persisted.

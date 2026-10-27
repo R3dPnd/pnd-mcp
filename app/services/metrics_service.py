@@ -2,7 +2,7 @@
 Metrics persistence service.
 
 Listens for ``turn.code`` events on the EventBus and appends each record to
-``~/.dann/code_calls.jsonl`` (one JSON object per line). Provides query helpers
+``<persona data dir>/code_calls.jsonl`` (one JSON object per line). Provides query helpers
 used by the /api/v1/metrics endpoint.
 """
 
@@ -14,15 +14,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_DANN_DIR = Path.home() / ".dann"
-_CALLS_FILE = _DANN_DIR / "code_calls.jsonl"
+from shared.persona import data_dir
+
 
 _records: list[dict[str, Any]] = []
 _lock = threading.Lock()
 
 
+def _calls_file() -> Path:
+    return data_dir() / "code_calls.jsonl"
+
+
 def _ensure_dir() -> None:
-    _DANN_DIR.mkdir(parents=True, exist_ok=True)
+    data_dir()  # creates it
 
 
 def record_metric(event_type: str, payload: dict[str, Any]) -> None:
@@ -40,7 +44,7 @@ def record_metric(event_type: str, payload: dict[str, Any]) -> None:
 
     _ensure_dir()
     try:
-        with open(_CALLS_FILE, "a", encoding="utf-8") as fh:
+        with open(_calls_file(), "a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
     except OSError:
         pass
@@ -50,11 +54,11 @@ def record_metric(event_type: str, payload: dict[str, Any]) -> None:
 
 
 def _load_from_disk() -> list[dict[str, Any]]:
-    if not _CALLS_FILE.exists():
+    if not _calls_file().exists():
         return []
     rows: list[dict[str, Any]] = []
     try:
-        with open(_CALLS_FILE, encoding="utf-8") as fh:
+        with open(_calls_file(), encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if line:

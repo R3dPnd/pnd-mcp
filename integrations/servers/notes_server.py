@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP server for quick voice-captured notes and reminders.
 
-Local-only storage (~/.dann/notes.json) — no external account needed.
+Local-only storage (<persona data dir>/notes.json, default ~/.dann) — no external account needed.
 
 Exposed tools:
   add_note        — save a note, optionally tagged

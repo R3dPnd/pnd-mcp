@@ -2,7 +2,8 @@
 Log persistence service.
 
 Listens for ``error`` and ``warning`` EventBus events and writes them to
-``~/.dann/dann.log``.  Also keeps an in-memory ring buffer of the last 2 000
+``<persona data dir>/<persona name>.log`` (``~/.dann/dann.log`` by default).
+Also keeps an in-memory ring buffer of the last 2 000
 entries for the /api/v1/logs endpoint.
 """
 
@@ -15,8 +16,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_DANN_DIR = Path.home() / ".dann"
-_LOG_FILE = _DANN_DIR / "dann.log"
+from shared import persona
+from shared.persona import data_dir
+
 _MAX_ENTRIES = 2000
 
 # Ordered from most verbose to most severe (matches Python logging levels).
@@ -44,8 +46,13 @@ _entries: deque[dict[str, Any]] = deque(maxlen=_MAX_ENTRIES)
 _lock = threading.Lock()
 
 
+def _log_file() -> Path:
+    """<persona data dir>/<persona name>.log — dann.log for the default persona."""
+    return data_dir() / f"{persona.get_persona().name.lower()}.log"
+
+
 def _ensure_dir() -> None:
-    _DANN_DIR.mkdir(parents=True, exist_ok=True)
+    data_dir()  # creates it
 
 
 def record_event(event_type: str, payload: dict[str, Any]) -> None:
@@ -68,7 +75,7 @@ def record_event(event_type: str, payload: dict[str, Any]) -> None:
     if level in ("ERROR", "WARNING", "CRITICAL"):
         _ensure_dir()
         try:
-            with open(_LOG_FILE, "a", encoding="utf-8") as fh:
+            with open(_log_file(), "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(entry) + "\n")
         except OSError:
             pass
