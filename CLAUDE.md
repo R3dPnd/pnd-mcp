@@ -13,12 +13,14 @@ This repo does **not** contain a persona. It has no `config.yaml`, no system pro
 `dann.py`-equivalent entrypoint. A persona repo depends on this one (as a git submodule,
 conventionally mounted at `runtime/`) and supplies:
 
-- `config.yaml` — routing/system prompt, which MCP modules + focus areas are enabled,
-  model/voice choices, absolute/relative paths as needed.
+- `config.yaml` — its `persona:` block (name, wake phrase, data dir, ports — see
+  `docs/persona-config.md`), routing/system prompt, which MCP modules + focus areas are
+  enabled, model/voice choices, absolute/relative paths as needed. An optional gitignored
+  `config.local.yaml` next to it is merged over it for per-machine settings.
 - Its own persona-specific MCP tool-servers, registered into `mcp.servers` alongside the
   ones here.
-- A launcher (like `dann-of-thursday`'s `dann.py`) that runs this repo's `app.main:app`
-  and `ui/` with `cwd` set to wherever this submodule lives, so `config.yaml`'s relative
+- A launcher (like `dann-of-thursday`'s `dann.py`) that sets `PND_CONFIG_PATH` and runs
+  this repo's `app.main:app` and `ui/` with `cwd` set to wherever this submodule lives, so `config.yaml`'s relative
   paths (`models/...`, `../.venv/bin/python` for MCP subprocess `command:` fields) resolve
   correctly.
 
@@ -27,6 +29,7 @@ conventionally mounted at `runtime/`) and supplies:
 ```
 voice/          Voice pipeline (wake word → STT → LLM → TTS)
 integrations/   MCP client + tool-server modules:
+                  claude_server      — ask_claude + web_search (general Claude, no coding tools)
                   claude_code_server — project discovery + Claude Code session bridge
                   devteam_server     — background multi-phase Claude Code pipelines (builds on claude_code_server)
                   schedule, notes, gardening, bjj, system, focus_areas — general-purpose personal-assistant tools
@@ -47,7 +50,7 @@ repo's shared venv and `cwd=runtime/`:
 | What | Command |
 |------|---------|
 | Voice agent (full) | `.venv/bin/python -m voice.main` |
-| Backend only (no mic) | `NO_VOICE=1 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000` |
+| Backend only (no mic) | `NO_VOICE=1 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000` (or the persona's `api_port`) |
 | UI dev server | `cd ui && npm run dev` (port 3000) |
 | Standalone desktop app | `cd ui && npm run electron:start` — spawns its own backend, no browser tab, no Vite dev server needed |
 
@@ -103,6 +106,8 @@ server module here uses. (The `integrations/` package is named to avoid shadowin
 in the consuming repo's `config.yaml` — each entry a separate module (own process, own
 dependencies), implemented under `integrations/servers/`:
 
+- `claude_server.py` — `ask_claude` and `web_search` via the `claude` CLI, for personas
+  that want research/reasoning without the coding tools.
 - `claude_code_server.py` (conventionally `projects`, `always_on: true`) — project
   discovery and the Claude Code bridge. Sessions with `SessionMode.CODE` bypass Ollama and
   route to Claude Code directly.
@@ -110,7 +115,7 @@ dependencies), implemented under `integrations/servers/`:
   `find_projects`/`resolve_project` from `claude_code_server.py`.
 - `schedule_server.py` — Google Calendar (needs one-time OAuth setup, see
   `docs/schedule-setup.md`).
-- `notes_server.py` — local notes/reminders, `~/.dann/notes.json`.
+- `notes_server.py` — local notes/reminders, `<data dir>/notes.json`.
 - `gardening_server.py` — garden log (plantings, harvests, care notes).
 - `bjj_server.py` — BJJ training log.
 - `system_server.py` — volume/open-app/lock-screen via `osascript`.
@@ -126,13 +131,28 @@ for a module that should just always be connected.
 orchestrator and text chat (`app/services/chat_service.py`) use the same server processes
 and tool state rather than starting their own.
 
-Personal per-machine module data (OAuth tokens, notes) lives under `~/.dann/`, not in the
-repo — see `integrations/servers/_store.py`. (`~/.dann/` is a legacy name from before the
-extraction; not worth renaming just for cosmetics.)
+Personal per-machine data (OAuth tokens, notes, history, logs, focus areas) lives in the
+persona data dir — `persona.data_dir`, default `~/.dann/` — not in the repo. Resolve it
+with `shared.persona.data_dir()`, never `Path.home() / ".dann"`. MCP tool-servers get it
+as `PND_DATA_DIR`, injected by `MCPManager` (`integrations/client.py`'s `server_env`),
+because the mcp stdio client doesn't pass the parent's environment through.
+
+## Claude usage
+
+Every one-shot `claude` CLI call goes through `shared/claude_cli.py`'s `run_claude`, and
+every `claude` launch uses `claude_env()`, which strips `ANTHROPIC_API_KEY` so usage stays
+on the Claude Code subscription. Don't add an anthropic-SDK fallback.
+
+## Chat API for external clients
+
+`POST /api/v1/chat/client` (`{conversation_id, text, context?: {source, data}}`) is the
+text chat for clients that aren't a focus-area work stream, e.g. an editor plugin. The
+context payload is folded into the system prompt as labelled data (capped at 8000 chars);
+history is in memory only.
 
 ## Known rough edges
 
-- `app/services/devteam_service.py` reads `~/.dann/devteam_jobs.json` written by
+- `app/services/devteam_service.py` reads `<data dir>/devteam_jobs.json` written by
   `devteam_server.py` — a loose coupling via a shared file, not an import, so it's fine
   for this to live here even though "devteam" only makes sense for a coding-partner-style
   persona. Not worth splitting out further.

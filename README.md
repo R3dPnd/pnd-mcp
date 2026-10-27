@@ -15,6 +15,7 @@ here and can be reused by other personas.
 ```
 voice/          Voice pipeline: wake word → STT (faster-whisper) → LLM router (Ollama) → TTS (Piper)
 integrations/   MCP client (MCPManager) + tool-server library:
+                  claude_server       — ask_claude + web_search via the claude CLI (no coding tools)
                   claude_code_server  — discover/resolve projects, launch Claude Code sessions over MCP
                   devteam_server      — start/check dev pipeline jobs (builds on claude_code_server)
                   notes, schedule, gardening, bjj, system, focus_areas — general-purpose personal-assistant tools
@@ -33,9 +34,11 @@ A persona repo (like `dann-of-thursday`) is expected to:
 
 1. Depend on this repo (git submodule, or `pip install` once this has a
    package build) rather than vendoring the runtime.
-2. Supply its own `config.yaml` — the routing/system prompt that defines
-   the persona's identity and which of the tool-servers above are enabled
-   for it.
+2. Supply its own `config.yaml` — a `persona:` block (name, wake phrase,
+   data dir, ports), the routing/system prompt that defines the persona's
+   identity, and which of the tool-servers above are enabled for it. See
+   `docs/persona-config.md`, including the optional per-machine
+   `config.local.yaml`.
 3. Add its own persona-specific MCP tool-servers (e.g. a Godot server) and
    register them alongside the ones here via config, rather than forking
    this repo.
