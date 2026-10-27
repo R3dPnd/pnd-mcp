@@ -8,10 +8,14 @@ GET    /api/v1/chat/streams/{id}         — stream detail + message history
 POST   /api/v1/chat/streams/{id}/messages — send a message, get the response
 POST   /api/v1/chat/streams/{id}/clear   — wipe message history, keep the stream
 DELETE /api/v1/chat/streams/{id}         — delete a work stream
+POST   /api/v1/chat/client               — chat for an external client (e.g. an
+                                           editor plugin), not bound to a focus
+                                           area, with an optional context payload
 """
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
@@ -29,6 +33,17 @@ class CreateStreamRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     text: str
+
+
+class ClientContext(BaseModel):
+    source: str = "client"
+    data: Any = None
+
+
+class ClientMessageRequest(BaseModel):
+    conversation_id: str
+    text: str
+    context: ClientContext | None = None
 
 
 @router.post("/streams", summary="Create a work stream")
@@ -84,3 +99,14 @@ async def delete_stream(stream_id: str) -> JSONResponse:
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Unknown work stream: {stream_id}")
     return JSONResponse({"deleted": True})
+
+
+@router.post("/client", summary="Send a message from an external client")
+async def send_client_message(body: ClientMessageRequest) -> JSONResponse:
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="text must not be empty")
+    if not body.conversation_id.strip():
+        raise HTTPException(status_code=400, detail="conversation_id must not be empty")
+    context = body.context.model_dump() if body.context else None
+    result = await asyncio.to_thread(chat_service.send_client_message, body.conversation_id, body.text, context)
+    return JSONResponse(result)
