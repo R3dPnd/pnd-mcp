@@ -26,8 +26,8 @@ const ChatPanel = lazy(() => import('./components/ChatPanel')) // the main "DANN
 
 type Tab = 'dann' | 'focus' | 'modules' | 'notes' | 'metrics' | 'system'
 
-function tabLabel(t: Tab): string {
-  if (t === 'dann') return 'DANN'
+function tabLabel(t: Tab, personaName: string): string {
+  if (t === 'dann') return personaName.toUpperCase()
   if (t === 'focus') return 'Focus Areas'
   if (t === 'modules') return 'Modules'
   if (t === 'notes') return 'Notes'
@@ -43,6 +43,7 @@ export default function App() {
 
   const focusMode = useDannStore(s => s.focusMode)
   const setFocusMode = useDannStore(s => s.setFocusMode)
+  const personaName = useDannStore(s => s.persona.name)
 
   const tabs: Tab[] = ['dann', 'focus', 'modules', 'notes', 'metrics', 'system']
   const [activeTabId, setActiveTabId] = useState<Tab>('dann')
@@ -80,7 +81,7 @@ export default function App() {
                   ⛶
                 </button>
               )}
-              {tabLabel(tab)}
+              {tabLabel(tab, personaName)}
             </div>
           )
         })}

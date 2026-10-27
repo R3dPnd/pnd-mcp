@@ -7,7 +7,7 @@ import type { PipelineStage, RawEvent, TurnTrace, VoiceTurn } from '../types'
 // ── Stage config ──────────────────────────────────────────────────────────────
 
 const STAGE_INFO: Record<PipelineStage, { label: string; color: string }> = {
-  idle:      { label: "Listening for 'ok Dann'", color: 'text-zinc-500' },
+  idle:      { label: 'Listening',                color: 'text-zinc-500' },  // + wake phrase, see stageLabel
   wake:      { label: 'Wake word detected',       color: 'text-neon-orange' },
   recording: { label: 'Listening…',               color: 'text-neon-red' },
   thinking:  { label: 'Thinking…',                color: 'text-neon-blue' },
@@ -176,6 +176,8 @@ export function VoicePanel() {
   const inSession = pipelineStage !== 'idle'
   const active    = running && voiceListening
   const stageInfo = STAGE_INFO[pipelineStage]
+  const wakePhrase = useDannStore(s => s.persona.wake_phrase)
+  const stageLabel = pipelineStage === 'idle' ? `Listening for '${wakePhrase}'` : stageInfo.label
 
   // Load persisted history once on mount
   useEffect(() => {
@@ -270,7 +272,7 @@ export function VoicePanel() {
 
         <div className="flex items-center">
           <span className={`text-[10px] tracking-widest uppercase ${active ? stageInfo.color : 'text-zinc-600'}`}>
-            {!running ? 'Offline' : !voiceListening ? 'Voice off' : stageInfo.label}
+            {!running ? 'Offline' : !voiceListening ? 'Voice off' : stageLabel}
           </span>
           {active && (
             <StageDuration stageEnteredAt={stageEnteredAt} stage={pipelineStage} />

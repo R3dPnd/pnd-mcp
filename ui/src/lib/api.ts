@@ -1,4 +1,4 @@
-import type { DevTeamJob, FocusArea, FocusAreaNote, LogEntry, MetricSummary, Module, Project, PromptBuilderResult, ResourceStatus, StateSnapshot, TerminalSession, TurnRecord, WorkStream } from '../types'
+import type { DevTeamJob, FocusArea, FocusAreaNote, LogEntry, MetricSummary, Module, Persona, Project, PromptBuilderResult, ResourceStatus, StateSnapshot, TerminalSession, TurnRecord, WorkStream } from '../types'
 
 const BASE = '/api/v1'
 
@@ -20,6 +20,8 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 
 export const api = {
   getState: () => get<StateSnapshot>('/state'),
+
+  getPersona: () => get<Persona>('/persona'),
 
   getNotes: () =>
     get<{ notes: Project[]; count: number }>('/notes').then(r => r.notes),

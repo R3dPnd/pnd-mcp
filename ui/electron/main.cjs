@@ -6,8 +6,9 @@ const path = require('path')
 const http = require('http')
 
 const isDev = process.env.NODE_ENV === 'development'
-const BACKEND_PORT = 8000
-const DEV_PORT = 3000
+// The persona launcher sets these; the defaults are the pre-persona Dann values.
+const BACKEND_PORT = Number(process.env.PND_API_PORT || 8000)
+const DEV_PORT = Number(process.env.PND_UI_PORT || 3000)
 
 let mainWindow = null
 let backendProcess = null
@@ -48,7 +49,12 @@ function startBackend () {
     {
       cwd: runtimeRoot,
       windowsHide: true,
-      env: { ...process.env, DANN_CONFIG_PATH: path.join(personaRoot, 'config.yaml') },
+      env: {
+        ...process.env,
+        // DANN_CONFIG_PATH too, for runtimes older than the PND_ rename
+        PND_CONFIG_PATH: path.join(personaRoot, 'config.yaml'),
+        DANN_CONFIG_PATH: path.join(personaRoot, 'config.yaml'),
+      },
     }
   )
 
@@ -69,7 +75,7 @@ async function createWindow () {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    fullscreen: process.env.DANN_FULLSCREEN === '1',
+    fullscreen: process.env.PND_FULLSCREEN === '1' || process.env.DANN_FULLSCREEN === '1',
     backgroundColor: '#09090b', // zinc-950 — prevents white flash before React loads
     show: false,
     webPreferences: {
@@ -77,7 +83,7 @@ async function createWindow () {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    title: 'Dann of Thursday',
+    title: process.env.PND_PERSONA_NAME || 'Dann of Thursday',  // page title updates from /api/v1/persona
   })
 
   mainWindow.once('ready-to-show', () => mainWindow.show())

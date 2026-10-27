@@ -79,6 +79,11 @@ export interface CodeTurn {
   sessionId: string | null
 }
 
+export interface Persona {
+  name: string
+  wake_phrase: string
+}
+
 export interface StateSnapshot {
   mode: string
   project: string | null

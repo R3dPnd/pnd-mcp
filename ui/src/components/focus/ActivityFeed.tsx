@@ -2,6 +2,7 @@ import { useDannStore } from '../../hooks/useDannState'
 import { TraceBar } from '../VoicePanel'
 
 export function ActivityFeed() {
+  const wakePhrase = useDannStore(s => s.persona.wake_phrase)
   const mode        = useDannStore(s => s.mode)
   const project     = useDannStore(s => s.project)
   const pendingStt  = useDannStore(s => s._pendingStt)
@@ -46,7 +47,7 @@ export function ActivityFeed() {
       {lastTurn?.trace && <TraceBar trace={lastTurn.trace} />}
 
       {!lastTurn && !pendingStt && !liveResponse && (
-        <p className="text-xs text-zinc-700">No activity yet — say "ok Dann" to begin.</p>
+        <p className="text-xs text-zinc-700">No activity yet — say "{wakePhrase}" to begin.</p>
       )}
     </div>
   )

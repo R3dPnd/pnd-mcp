@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from shared.persona import get_persona
 
 # ── Orchestrator (optional) ───────────────────────────────────────────────────
 # Module-level reference so endpoint handlers can call orchestrator.snapshot()
@@ -48,8 +49,8 @@ def _start_orchestrator() -> None:
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    description="Dann of Thursday — voice AI agent + dashboard API",
+    title=f"{get_persona().name} API",
+    description=f"{get_persona().name} — voice AI agent + dashboard API (pnd-mcp runtime)",
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
@@ -128,7 +129,7 @@ async def shutdown_event() -> None:
 @app.get("/", tags=["health"])
 async def root():
     return {
-        "message": "Dann of Thursday API",
+        "message": f"{get_persona().name} API",
         "version": settings.VERSION,
         "docs": "/docs",
     }

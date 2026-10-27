@@ -20,6 +20,7 @@ export function useDannEvents(): void {
   const setModules = useDannStore((s) => s.setModules)
   const setFocusAreas = useDannStore((s) => s.setFocusAreas)
   const setTerminals = useDannStore((s) => s.setTerminals)
+  const setPersona = useDannStore((s) => s.setPersona)
 
   const retryDelay = useRef(RECONNECT_BASE_MS)
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -29,6 +30,7 @@ export function useDannEvents(): void {
   // Seed state + modules + focus areas on mount
   useEffect(() => {
     api.getState().then(applySnapshot).catch(() => {/* API not yet up */})
+    api.getPersona().then(setPersona).catch(() => {})
     api.getNotes().then(setNoteProjects).catch(() => {})
     api.getModules().then(setModules).catch(() => {})
     api.getFocusAreas().then(setFocusAreas).catch(() => {})

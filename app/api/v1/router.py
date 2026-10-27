@@ -2,13 +2,14 @@
 Main API router that aggregates all endpoint modules
 """
 from fastapi import APIRouter
-from app.api.v1.endpoints import chat, devteam, events, focus_areas, health, history, logs, metrics, modules, notes, projects, prompt_builder, resources, runs, state, system, terminals, tools, voice
+from app.api.v1.endpoints import chat, devteam, events, focus_areas, health, history, logs, metrics, modules, notes, persona, projects, prompt_builder, resources, runs, state, system, terminals, tools, voice
 
 api_router = APIRouter()
 
 # Include all endpoint routers
 api_router.include_router(health.router, prefix="/health", tags=["health"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+api_router.include_router(persona.router, prefix="/persona", tags=["persona"])
 api_router.include_router(tools.router, prefix="/tools", tags=["tools"])
 api_router.include_router(state.router, prefix="/state", tags=["state"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])

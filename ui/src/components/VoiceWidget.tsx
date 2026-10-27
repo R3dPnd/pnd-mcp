@@ -56,6 +56,7 @@ function MicOffIcon() {
 export function VoiceWidget() {
   const pipelineStage  = useDannStore((s) => s.pipelineStage)
   const liveResponse   = useDannStore((s) => s.liveResponse)
+  const wakePhrase     = useDannStore((s) => s.persona.wake_phrase)
   const pendingStt     = useDannStore((s) => s._pendingStt)
   const voiceListening = useDannStore((s) => s.voiceListening)
   const running        = useDannStore((s) => s.running)
@@ -72,7 +73,7 @@ export function VoiceWidget() {
     pipelineStage === 'thinking' && pendingStt     ? `"${pendingStt}"` :
     pipelineStage === 'recording'                  ? '' :
     pipelineStage === 'wake'                       ? 'Session starting…' :
-    voiceListening && running                      ? "Say 'ok Dann' to begin" :
+    voiceListening && running                      ? `Say '${wakePhrase}' to begin` :
     ''
 
   async function handleTrigger() {

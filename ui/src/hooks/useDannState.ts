@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CodeTurn, FocusArea, LogEntry, MetricSummary, Mode, Module, PipelineStage, Project, RawEvent, StateSnapshot, TerminalSession, VoiceTurn } from '../types'
+import type { CodeTurn, FocusArea, LogEntry, MetricSummary, Mode, Module, Persona, PipelineStage, Project, RawEvent, StateSnapshot, TerminalSession, VoiceTurn } from '../types'
 
 const MAX_LOG_ENTRIES = 2000
 const MAX_VOICE_TURNS = 200
@@ -69,6 +69,10 @@ interface DannStore {
   // session.start/session.end (see applyEvent)
   focusMode: boolean
 
+  // Who the runtime is running as (GET /api/v1/persona) — the pre-persona
+  // Dann defaults until it loads
+  persona: Persona
+
   // Actions
   applySnapshot: (snapshot: StateSnapshot) => void
   applyEvent: (type: string, payload: Record<string, unknown>) => void
@@ -83,6 +87,7 @@ interface DannStore {
   prependTurns: (turns: VoiceTurn[]) => void
   setFocusMode: (v: boolean) => void
   toggleFocusMode: () => void
+  setPersona: (persona: Persona) => void
 }
 
 function setStage(stage: PipelineStage): Partial<DannStore> {
@@ -111,6 +116,7 @@ export const useDannStore = create<DannStore>((set) => ({
   unreadErrors: 0,
   rawEvents: [],
   focusMode: false,
+  persona: { name: 'Dann', wake_phrase: 'ok Dann' },
 
   applySnapshot: (snapshot) =>
     set({
@@ -332,4 +338,8 @@ export const useDannStore = create<DannStore>((set) => ({
   }),
   setFocusMode: (v) => set({ focusMode: v }),
   toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
+  setPersona: (persona) => {
+    document.title = persona.name
+    set({ persona })
+  },
 }))
