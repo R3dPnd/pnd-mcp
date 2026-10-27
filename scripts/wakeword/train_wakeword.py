@@ -1,5 +1,6 @@
 """
-Train a custom "ok Dann" openWakeWord model from pre-generated samples.
+Train a custom openWakeWord model (default "ok Dann") from pre-generated samples.
+Pass --clips-dir/--out-model for another persona (see wakeword_args.py).
 
 Prerequisites:
     Run scripts/generate_wakeword_samples.py first.
@@ -35,11 +36,14 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # wakeword_args
 
 from piper import PiperVoice, SynthesisConfig
 import openwakeword
 from openwakeword.utils import AudioFeatures
 import openwakeword.utils as oww_utils
+
+from wakeword_args import output_name, parse_train_args
 
 # ── Minimal OWW trainer (avoids openwakeword.train → openwakeword.data → pronouncing
 #    → pkg_resources which is missing in setuptools 82+) ──────────────────────
@@ -128,13 +132,13 @@ class OWWTrainer:
                 self.history["val_acc"].append(acc)
                 self.model.train()
 
-    def export_to_onnx(self, output_path: str) -> None:
+    def export_to_onnx(self, output_path: str, output_name: str = "ok_dann") -> None:
         self.model.eval().cpu()
         dummy = torch.rand((1,) + self.input_shape)
         torch.onnx.export(
             self.model, dummy, output_path,
             input_names=["input"],
-            output_names=["ok_dann"],
+            output_names=[output_name],
             opset_version=13,
             dynamo=False,  # legacy exporter: single self-contained .onnx file,
                             # no onnxscript dependency, no external-data sidecar
@@ -281,7 +285,15 @@ def repeating_loader(loader: DataLoader, max_steps: int):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    if not POSITIVE_DIR.exists() or not list(POSITIVE_DIR.glob("*.wav")):
+    args = parse_train_args()
+    clips_dir = args.clips_dir or REPO_ROOT / "training"
+    positive_dir = clips_dir / "positive"
+    positive_real_dir = clips_dir / "positive_real"
+    adversarial_dir = clips_dir / "adversarial"
+    out_model = args.out_model or OUT_MODEL
+    voice_model = args.voice_model or VOICE_MODEL
+
+    if not positive_dir.exists() or not list(positive_dir.glob("*.wav")):
         print("ERROR: No positive clips found.")
         print("Run:  .venv/Scripts/python.exe scripts/generate_wakeword_samples.py  first.")
         sys.exit(1)
@@ -292,11 +304,11 @@ def main() -> None:
 
     # 2. Load generated clips
     print("Loading positive clips…", flush=True)
-    pos_clips = load_wavs_to_array(POSITIVE_DIR)
+    pos_clips = load_wavs_to_array(positive_dir)
     print(f"  {len(pos_clips)} synthetic positive clips loaded", flush=True)
 
-    if POSITIVE_REAL_DIR.exists() and list(POSITIVE_REAL_DIR.glob("*.wav")):
-        real_clips = load_wavs_to_array(POSITIVE_REAL_DIR)
+    if positive_real_dir.exists() and list(positive_real_dir.glob("*.wav")):
+        real_clips = load_wavs_to_array(positive_real_dir)
         print(f"  {len(real_clips)} real positive clips loaded — oversampling x{REAL_OVERSAMPLE}", flush=True)
         real_clips = np.tile(real_clips, (REAL_OVERSAMPLE, 1))
         pos_clips = np.concatenate([pos_clips, real_clips], axis=0)
@@ -308,12 +320,12 @@ def main() -> None:
             flush=True,
         )
 
-    adv_clips = load_wavs_to_array(ADVERSARIAL_DIR)
+    adv_clips = load_wavs_to_array(adversarial_dir)
     print(f"  {len(adv_clips)} adversarial clips loaded", flush=True)
 
     # 3. Generate negative speech + noise with piper-tts
     print(f"Generating {N_NEG_SPEECH} negative speech clips…", flush=True)
-    voice = PiperVoice.load(str(VOICE_MODEL), use_cuda=False)
+    voice = PiperVoice.load(str(voice_model), use_cuda=False)
     neg_speech = []
     for i in range(N_NEG_SPEECH):
         phrase = NEGATIVE_PHRASES[i % len(NEGATIVE_PHRASES)]
@@ -378,10 +390,10 @@ def main() -> None:
     )
 
     # 7. Export ONNX
-    OUT_MODEL.parent.mkdir(parents=True, exist_ok=True)
-    trainer.export_to_onnx(str(OUT_MODEL))
+    out_model.parent.mkdir(parents=True, exist_ok=True)
+    trainer.export_to_onnx(str(out_model), output_name(out_model))
 
-    print(f"\nModel saved → {OUT_MODEL}", flush=True)
+    print(f"\nModel saved → {out_model}", flush=True)
     print("Switch to it in config.yaml:", flush=True)
     print("  wake_word:", flush=True)
     print("    model: models/ok_dann.onnx", flush=True)

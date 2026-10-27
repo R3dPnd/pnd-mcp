@@ -1,5 +1,6 @@
 """
-Generate synthetic "ok Dann" training samples using the installed piper-tts.
+Generate synthetic wake-word training samples using the installed piper-tts.
+Defaults to "ok Dann"; pass --phrases-file for another persona (see wakeword_args.py).
 
 Outputs 16 kHz mono WAV files to:
   training/positive/    — 3 000 clips of "ok dann" variants
@@ -18,8 +19,11 @@ import numpy as np
 import scipy.signal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # wakeword_args
 
 from piper import PiperVoice, SynthesisConfig
+
+from wakeword_args import load_phrases, parse_generate_args
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -32,18 +36,6 @@ CLIP_SAMPLES = TARGET_RATE * 3  # 3-second clips → 48 000 samples
 
 N_POSITIVE    = 3000
 N_ADVERSARIAL = 1500
-
-POSITIVE_PHRASES = [
-    "ok dann", "okay dann", "ok dan", "okay dan",
-    "ok Dann", "okay Dann", "ok then Dann",
-]
-
-ADVERSARIAL_PHRASES = [
-    "ok jan",  "ok man",  "ok can",  "ok ann",  "ok van",  "ok ran",
-    "hey dan", "hey dann", "hey jan",
-    "ok google", "hey jarvis", "alexa",
-    "okay then", "ok thanks", "ok good", "ok sure",
-]
 
 LENGTH_SCALES  = [0.70, 0.80, 0.90, 1.00, 1.10, 1.20, 1.35, 1.50]
 NOISE_SCALES   = [0.333, 0.500, 0.667, 0.800, 1.000]
@@ -96,18 +88,23 @@ def generate_set(voice: PiperVoice, phrases: list, out_dir: Path, prefix: str, n
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    if not VOICE_MODEL.exists():
-        print(f"ERROR: voice model not found at {VOICE_MODEL}")
+    args = parse_generate_args()
+    voice_model = args.voice_model or VOICE_MODEL
+    out_dir = args.out_dir or REPO_ROOT / "training"
+    positive_phrases, adversarial_phrases = load_phrases(args.phrases_file)
+
+    if not voice_model.exists():
+        print(f"ERROR: voice model not found at {voice_model}")
         sys.exit(1)
 
     print("Loading voice model…", flush=True)
-    voice = PiperVoice.load(str(VOICE_MODEL), use_cuda=False)
+    voice = PiperVoice.load(str(voice_model), use_cuda=False)
 
-    print(f"Generating {N_POSITIVE} positive clips → training/positive/", flush=True)
-    generate_set(voice, POSITIVE_PHRASES, REPO_ROOT / "training" / "positive", "ok_dann", N_POSITIVE)
+    print(f"Generating {N_POSITIVE} positive clips → {out_dir / 'positive'}/", flush=True)
+    generate_set(voice, positive_phrases, out_dir / "positive", "pos", N_POSITIVE)
 
-    print(f"Generating {N_ADVERSARIAL} adversarial clips → training/adversarial/", flush=True)
-    generate_set(voice, ADVERSARIAL_PHRASES, REPO_ROOT / "training" / "adversarial", "adv", N_ADVERSARIAL)
+    print(f"Generating {N_ADVERSARIAL} adversarial clips → {out_dir / 'adversarial'}/", flush=True)
+    generate_set(voice, adversarial_phrases, out_dir / "adversarial", "adv", N_ADVERSARIAL)
 
     print("Done. Run scripts/train_wakeword.py next.", flush=True)
 

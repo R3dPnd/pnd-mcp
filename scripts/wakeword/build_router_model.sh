@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Builds (or rebuilds) Dann's custom routing model in Ollama.
-# Run this after editing models/dann-router.Modelfile, or any time you pull
-# a newer qwen2.5:7b-instruct base.
+# Builds (or rebuilds) a persona's custom routing model in Ollama.
+# Run this after editing the Modelfile, or any time you pull a newer base model.
+#
+# Usage: build_router_model.sh [name] [modelfile]
+#   name       Ollama model name to create (default: dann-router)
+#   modelfile  path to the Modelfile, relative to the repo root or absolute
+#              (default: models/dann-router.Modelfile)
 set -euo pipefail
-cd "$(dirname "$0")/.."
+name="${1:-dann-router}"
+modelfile="${2:-models/dann-router.Modelfile}"
+# Resolve a relative Modelfile against the caller's cwd before moving to the
+# runtime root, so a persona repo can pass its own path.
+if [ -f "$modelfile" ]; then modelfile="$(cd "$(dirname "$modelfile")" && pwd)/$(basename "$modelfile")"; fi
+cd "$(dirname "$0")/../.."
 
-ollama create dann-router -f models/dann-router.Modelfile
-echo "Built 'dann-router'. Set ollama.model: dann-router in config.yaml to use it."
+ollama create "$name" -f "$modelfile"
+echo "Built '$name'. Set ollama.model: $name in config.yaml to use it."
