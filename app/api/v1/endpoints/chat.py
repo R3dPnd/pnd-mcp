@@ -41,8 +41,9 @@ class ClientContext(BaseModel):
 
 
 class ClientMessageRequest(BaseModel):
-    conversation_id: str
-    text: str
+    # Defaults so a missing field gets the same 400 as a blank one, not a 422
+    conversation_id: str = ""
+    text: str = ""
     context: ClientContext | None = None
 
 

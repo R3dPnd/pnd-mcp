@@ -37,12 +37,13 @@ class Persona:
 def persona_from_config(cfg: dict[str, Any] | None) -> Persona:
     block = (cfg or {}).get("persona") or {}
     defaults = Persona()
+    # `or default`, not .get(key, default): a key left blank in YAML is None
     return Persona(
-        name=block.get("name", defaults.name),
-        wake_phrase=block.get("wake_phrase", defaults.wake_phrase),
-        data_dir=Path(block.get("data_dir", defaults.data_dir)).expanduser(),
-        api_port=int(block.get("api_port", defaults.api_port)),
-        ui_port=int(block.get("ui_port", defaults.ui_port)),
+        name=block.get("name") or defaults.name,
+        wake_phrase=block.get("wake_phrase") or defaults.wake_phrase,
+        data_dir=Path(block.get("data_dir") or defaults.data_dir).expanduser(),
+        api_port=int(block.get("api_port") or defaults.api_port),
+        ui_port=int(block.get("ui_port") or defaults.ui_port),
     )
 
 

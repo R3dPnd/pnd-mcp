@@ -15,9 +15,13 @@ LOCAL_OVERLAY_NAME = "config.local.yaml"
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Return a new dict: *override* merged over *base*. Nested dicts merge
     key-by-key; lists and scalars in *override* replace *base*'s outright
-    (merging list items, e.g. two `agents:` lists, has no obvious meaning)."""
+    (merging list items, e.g. two `agents:` lists, has no obvious meaning).
+    A None in *override* means "not set" — a section header whose children
+    are all commented out parses as None and mustn't wipe the base section."""
     merged = dict(base)
     for key, value in override.items():
+        if value is None:
+            continue
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = deep_merge(merged[key], value)
         else:
@@ -60,5 +64,7 @@ def load_config(path: Path | None = None) -> dict[str, Any]:
     if overlay_path.exists() and overlay_path != path:
         with open(overlay_path, encoding="utf-8") as f:
             overlay = yaml.safe_load(f) or {}
+        if not isinstance(overlay, dict):
+            raise ValueError(f"{overlay_path} must be a YAML mapping of config sections to override.")
         cfg = deep_merge(cfg, overlay)
     return cfg

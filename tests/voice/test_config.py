@@ -72,3 +72,18 @@ class TestLoadConfig:
         (tmp_path / "config.local.yaml").write_text("")
 
         assert load_config(base) == {"a": 1}
+
+    def test_local_overlay_empty_section_does_not_wipe_base(self, tmp_path):
+        base = tmp_path / "config.yaml"
+        base.write_text("mcp:\n  servers: [a]\n")
+        (tmp_path / "config.local.yaml").write_text("mcp:\n  # servers: [b]\n")
+
+        assert load_config(base) == {"mcp": {"servers": ["a"]}}
+
+    def test_local_overlay_that_is_not_a_mapping_raises_clearly(self, tmp_path):
+        base = tmp_path / "config.yaml"
+        base.write_text("a: 1\n")
+        (tmp_path / "config.local.yaml").write_text("- a\n- b\n")
+
+        with pytest.raises(ValueError, match="config.local.yaml"):
+            load_config(base)

@@ -82,6 +82,8 @@ def test_oldest_conversation_evicted_beyond_limit(client, captured, monkeypatch)
 @pytest.mark.parametrize("body", [
     {"conversation_id": "g1", "text": "  "},
     {"conversation_id": " ", "text": "hi"},
+    {"text": "hi"},
+    {"conversation_id": "g1"},
 ])
 def test_rejects_blank_fields(client, captured, body):
     assert client.post("/api/v1/chat/client", json=body).status_code == 400

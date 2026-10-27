@@ -40,7 +40,12 @@ size, audio devices, absolute paths to other repos.
 
 Merge rules: nested mappings merge key by key; lists and scalars replace the
 base value outright (a local `agents:` list replaces the whole base list). An
-empty file is ignored.
+empty file is ignored, and so is a key left blank (e.g. a section header whose
+children are all commented out) — it doesn't wipe the base section.
+
+Ports: `persona.api_port`/`ui_port` are the source of truth, but Vite and
+Electron read `PND_API_PORT`/`PND_UI_PORT` from the environment, so the persona
+launcher must export those from the persona block.
 
 ## Environment variables
 

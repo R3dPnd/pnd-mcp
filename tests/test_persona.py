@@ -44,3 +44,9 @@ def test_get_persona_falls_back_to_defaults_without_config(tmp_path, monkeypatch
         assert get_persona().name == "Dann"
     finally:
         get_persona.cache_clear()
+
+
+def test_blank_persona_values_fall_back_to_defaults():
+    p = persona_from_config({"persona": {"name": None, "wake_phrase": None, "data_dir": None}})
+    assert (p.name, p.wake_phrase) == ("Dann", "ok Dann")
+    assert p.data_dir == Path.home() / ".dann"
