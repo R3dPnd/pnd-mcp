@@ -30,12 +30,18 @@ from shared.persona import get_persona
 orchestrator = None
 
 
+def voice_listens() -> bool:
+    """False when PND_VOICE_MODE=speak: the voice pipeline reads typed-chat
+    replies aloud but never opens the mic."""
+    return os.environ.get("PND_VOICE_MODE", "listen").strip().lower() != "speak"
+
+
 def _start_orchestrator() -> None:
     """Initialise and run the voice orchestrator. Runs in a daemon thread."""
     global orchestrator
     try:
         from voice.orchestrator import Orchestrator
-        orchestrator = Orchestrator()  # DANN_CONFIG_PATH env var, or see load_config's own default
+        orchestrator = Orchestrator(listen=voice_listens())  # PND_CONFIG_PATH env var, or see load_config's own default
         orchestrator.run()
     except Exception as exc:
         from voice.event_bus import bus

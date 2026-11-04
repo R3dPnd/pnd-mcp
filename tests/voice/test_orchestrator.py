@@ -285,3 +285,46 @@ class TestSilentTurns:
             orch._run_turn()
         assert spoken == []
         assert orch._end_reason == "silence"
+
+
+# ── Speak-only mode (no mic) ──────────────────────────────────────────────────
+
+class TestSpeakOnlyMode:
+    """listen=False: typed replies are read aloud, but no wake-word detector is
+    created, no STT model is loaded, and the mic is never opened."""
+
+    @pytest.fixture()
+    def speak_only(self, minimal_config):
+        cfg = {**minimal_config, "ux": {"speak_typed_replies": True}}
+        with patch("voice.orchestrator.load_config", return_value=cfg):
+            o = Orchestrator(listen=False)
+        o.spoken = []
+        o._speak = lambda text: o.spoken.append(text) or 0.0
+        return o
+
+    def test_run_speaks_typed_replies_without_a_detector_or_stt(self, speak_only):
+        def drain_then_stop():
+            Orchestrator._speak_queued(speak_only)
+            speak_only._running = False
+
+        speak_only._speak_queued = drain_then_stop
+        speak_only._on_bus_event("chat.turn", {"response": "Hello there."})
+        with patch("voice.orchestrator.warmup_stt") as stt, \
+             patch("voice.orchestrator.warmup_tts"), \
+             patch("voice.orchestrator.WakeWordDetector") as porcupine:
+            speak_only.run()
+        assert speak_only._detector is None
+        stt.assert_not_called()
+        porcupine.assert_not_called()
+        assert "Hello there." in speak_only.spoken
+
+    def test_speak_only_reports_not_listening(self, speak_only):
+        assert speak_only.snapshot()["listening"] is False
+
+    def test_enable_listening_cannot_open_the_mic(self, speak_only):
+        speak_only.enable_listening()
+        assert speak_only._detector is None
+        assert speak_only.snapshot()["listening"] is False
+
+    def test_listening_is_the_default(self, orch):
+        assert orch.snapshot()["listening"] is True

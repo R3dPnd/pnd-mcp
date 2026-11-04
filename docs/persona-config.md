@@ -59,6 +59,7 @@ launcher must export those from the persona block.
 | `PND_API_PORT` / `PND_UI_PORT` | — | `ui/vite.config.ts`, `ui/electron/main.cjs` | ports for the Vite dev server/proxy and Electron's own backend |
 | `PND_FULLSCREEN` | `DANN_FULLSCREEN` | Electron | start fullscreen when `1` |
 | `PND_PERSONA_NAME` | — | Electron | window title before the page loads |
+| `PND_VOICE_MODE` | — | `app.main` | `speak` = voice pipeline without the mic: no wake word or STT, typed-chat replies read aloud (with `ux.speak_typed_replies`). Default `listen` |
 
 ## Claude usage
 
@@ -85,3 +86,7 @@ spoken only while the orchestrator is idle, waiting for the wake word, so they
 never interrupt a voice session; replies typed during one are spoken after it
 ends. Wake detection is paused while it speaks (and a user's mute is kept), so
 the persona can't wake itself.
+
+To hear replies without the persona ever listening, start the API with
+`PND_VOICE_MODE=speak` (and without `NO_VOICE`): only the TTS voice loads, and
+the wake-word detector and STT model are never created.

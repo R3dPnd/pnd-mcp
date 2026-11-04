@@ -110,8 +110,12 @@ _MAX_CONSECUTIVE_BLANK_TURNS = 4
 class Orchestrator:
     """State machine: idle -> session (normal or code mode) -> idle."""
 
-    def __init__(self, config_path: Path | None = None):
+    def __init__(self, config_path: Path | None = None, listen: bool = True):
+        """`listen=False` is speak-only mode: typed-chat replies are read
+        aloud, but no wake-word detector or STT model is ever loaded, so the
+        mic is never opened."""
         self.config = load_config(config_path)
+        self._listen = listen
         self._audio_cfg = self.config.get("audio", {})
         self._wake_cfg = self.config.get("wake_word", {})
         self._stt_cfg = self.config.get("stt", {})
@@ -266,12 +270,14 @@ class Orchestrator:
             "project": self._code_project,
             "session_id": self._session_id,
             "running": self._running,
-            "listening": not self._user_paused,
+            "listening": self._listen and not self._user_paused,
             "uptime_s": round(time.time() - self._started_at, 1),
         }
 
     def enable_listening(self) -> None:
         """Re-enable wake word detection (undo a user-initiated pause)."""
+        if not self._listen:
+            return  # speak-only mode never opens the mic
         self._user_paused = False
         if self._detector and self._session_id is None:
             self._detector.resume()
@@ -769,6 +775,24 @@ class Orchestrator:
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
+    def _run_speak_only(self) -> None:
+        """Speak-only main loop: load just the TTS voice and read queued
+        typed-chat replies aloud until stopped. No detector, no mic."""
+        print("[dann] Loading voice...", flush=True)
+        warmup_tts(voice_model=self._tts_cfg.get("voice_model", "models/piper/en_US-lessac-medium"))
+        self._speak("Ready.")
+        self._running = True
+        bus.emit("state.changed", {"mode": self._mode.value, "project": None, "session_id": None, "running": True})
+        print("[dann] Speak-only mode: reading typed replies aloud; not listening.", flush=True)
+        bus.subscribe(self._on_bus_event)
+        try:
+            while self._running:
+                self._wake_event.wait(timeout=0.5)  # stop() sets it to exit promptly
+                self._wake_event.clear()
+                self._speak_queued()
+        finally:
+            bus.unsubscribe(self._on_bus_event)
+
     def run(self) -> None:
         """Start wake word listener and run until interrupted."""
         # MCP servers
@@ -777,6 +801,10 @@ class Orchestrator:
             self._mcp = get_shared_manager()
             self._mcp.start(mcp_servers)  # idempotent — no-op if the FastAPI app already started it
             print("[dann] MCP server ready.", flush=True)
+
+        if not self._listen:
+            self._run_speak_only()
+            return
 
         # Wake word detector
         wake_engine = self._wake_cfg.get("engine", "porcupine")
