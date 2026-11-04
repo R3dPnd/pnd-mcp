@@ -367,12 +367,17 @@ class Orchestrator:
 
         pcm = self._record()
 
-        if not pcm:
-            return True
-
         audio_arr = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32767
         min_speech_rms = self._audio_cfg.get("min_speech_rms", _MIN_SPEECH_RMS)
-        if float(np.sqrt(np.mean(audio_arr ** 2))) < min_speech_rms:
+        if not pcm or float(np.sqrt(np.mean(audio_arr ** 2))) < min_speech_rms:
+            # Silence counts toward giving up like a blank transcript does —
+            # otherwise a false wake in a quiet room records forever. Ends
+            # without speaking: there's nobody to tell.
+            self._consecutive_blank_turns += 1
+            if self._should_give_up():
+                print("[dann] No speech — ending session.", flush=True)
+                self._end_reason = "silence"
+                return False
             return True
 
         print("[dann] Transcribing...", flush=True)

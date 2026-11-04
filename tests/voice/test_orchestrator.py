@@ -1,5 +1,6 @@
 """Unit tests for Orchestrator pure-logic methods (no hardware required)."""
 
+import numpy as np
 import pytest
 from unittest.mock import patch
 
@@ -256,3 +257,31 @@ class TestSpeakTypedReplies:
         speaking_orch._on_bus_event("chat.turn", {"response": "Hello there."})
         speaking_orch._speak_queued()
         assert speaking_orch._detector.calls == ["pause"]
+
+
+# ── Silent turns end the session ──────────────────────────────────────────────
+
+class TestSilentTurns:
+    """A false wake in a quiet room used to leave the session recording
+    forever: silent recordings returned True without counting as blank."""
+
+    @pytest.mark.parametrize("pcm", [b"", np.zeros(16000, dtype=np.int16).tobytes()])
+    def test_repeated_silence_ends_the_session(self, orch, pcm):
+        from voice.orchestrator import _MAX_CONSECUTIVE_BLANK_TURNS
+
+        orch._record = lambda: pcm
+        orch._speak = lambda text: 0.0
+        results = [orch._run_turn() for _ in range(_MAX_CONSECUTIVE_BLANK_TURNS)]
+        assert results[:-1] == [True] * (_MAX_CONSECUTIVE_BLANK_TURNS - 1)
+        assert results[-1] is False
+
+    def test_silence_ends_the_session_without_speaking(self, orch):
+        from voice.orchestrator import _MAX_CONSECUTIVE_BLANK_TURNS
+
+        spoken = []
+        orch._record = lambda: b""
+        orch._speak = lambda text: spoken.append(text) or 0.0
+        for _ in range(_MAX_CONSECUTIVE_BLANK_TURNS):
+            orch._run_turn()
+        assert spoken == []
+        assert orch._end_reason == "silence"
