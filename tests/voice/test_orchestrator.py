@@ -328,3 +328,31 @@ class TestSpeakOnlyMode:
 
     def test_listening_is_the_default(self, orch):
         assert orch.snapshot()["listening"] is True
+
+
+# ── Persona name in spoken commands ───────────────────────────────────────────
+
+class TestPersonaNamedPhrases:
+    @pytest.fixture()
+    def akane(self, minimal_config):
+        cfg = {**minimal_config, "persona": {"name": "Akane"}}
+        with patch("voice.orchestrator.load_config", return_value=cfg):
+            return Orchestrator()
+
+    @pytest.mark.parametrize("text", ["thanks Akane", "thank you, Akane.", "bye akane", "that's all Akane", "cheers Akane"])
+    def test_goodbye_uses_the_persona_name(self, akane, text):
+        assert akane._is_goodbye(text) is True
+
+    def test_another_personas_name_is_not_a_goodbye_for_long_utterances(self, akane):
+        assert akane._is_goodbye("thanks Dann for explaining all of that") is False
+
+    @pytest.mark.parametrize("text", ["restart Akane", "please restart yourself"])
+    def test_restart_uses_the_persona_name(self, akane, text):
+        assert akane._is_restart(text) is True
+
+    def test_restart_does_not_answer_to_dann(self, akane):
+        assert akane._is_restart("restart Dann") is False
+
+    def test_dann_still_answers_to_dan(self, orch):
+        assert orch._is_restart("restart Dann") is True
+        assert orch._is_goodbye("thanks dan") is True

@@ -16,6 +16,7 @@ import numpy as np
 
 from shared.agents_config import build_routing_prompt
 from shared.focus_areas_config import build_focus_areas_prompt
+from shared.persona import persona_from_config
 from voice.audio import play_wav, record_until_silence
 from voice.audio.capture import save_wav
 from voice.config import load_config
@@ -36,13 +37,14 @@ class SessionMode(Enum):
 
 
 # ── Goodbye ──────────────────────────────────────────────────────────────────
-# Phrases that always end the session (with or without the name)
-_GOODBYE_WITH_NAME = frozenset({
-    "thanks dann", "thank you dann", "thanks dan", "thank you dan",
-    "bye dann", "goodbye dann", "bye dan", "goodbye dan",
-    "thats all dann", "thats all dan", "that is all dann", "that is all dan",
-    "cheers dann", "cheers dan",
-})
+# "<prefix> <persona name>" always ends the session, e.g. "thanks Akane".
+_GOODBYE_PREFIXES = ("thanks", "thank you", "bye", "goodbye", "thats all", "that is all", "cheers")
+
+
+def _spoken_names(name: str) -> set[str]:
+    """How STT may spell the persona's name. Dann is often heard as "Dan"."""
+    n = name.lower()
+    return {n, "dan"} if n == "dann" else {n}
 # Short standalone phrases (only matched when utterance is ≤4 words)
 _GOODBYE_STANDALONE = frozenset({
     "goodbye", "bye bye", "thats all", "that is all",
@@ -77,7 +79,9 @@ _STT_SUBSTITUTIONS: dict[str, str] = {
 # LLM/AGENTS system (deterministic regex, like goodbye/code-mode below),
 # both for reliability and because this codebase's own testing found the
 # router model unreliable at literal tool-calling under noisy input.
-_RESTART_RE = re.compile(r"\brestart\s+(?:yourself|dann)\b", re.IGNORECASE)
+def _restart_re(names: set[str]) -> re.Pattern[str]:
+    alternatives = "|".join(["yourself", *sorted(re.escape(n) for n in names)])
+    return re.compile(rf"\brestart\s+(?:{alternatives})\b", re.IGNORECASE)
 
 # The router model occasionally hallucinates a fake tool call as literal text
 # (e.g. "The weather is [web_search(query=\"...\")].") instead of actually
@@ -116,6 +120,10 @@ class Orchestrator:
         mic is never opened."""
         self.config = load_config(config_path)
         self._listen = listen
+        self._name = persona_from_config(self.config).name
+        names = _spoken_names(self._name)
+        self._goodbye_with_name = {f"{p} {n}" for p in _GOODBYE_PREFIXES for n in names}
+        self._restart_pattern = _restart_re(names)
         self._audio_cfg = self.config.get("audio", {})
         self._wake_cfg = self.config.get("wake_word", {})
         self._stt_cfg = self.config.get("stt", {})
@@ -202,12 +210,15 @@ class Orchestrator:
 
     def _is_goodbye(self, text: str) -> bool:
         n = self._normalise(text)
-        if any(phrase in n for phrase in _GOODBYE_WITH_NAME):
+        if any(phrase in n for phrase in self._goodbye_with_name):
             return True
         # Only match standalone phrases on short utterances to avoid false positives
         if len(n.split()) <= 4 and any(phrase in n for phrase in _GOODBYE_STANDALONE):
             return True
         return False
+
+    def _is_restart(self, text: str) -> bool:
+        return bool(self._restart_pattern.search(text))
 
     def _fix_stt(self, text: str) -> str:
         for wrong, right in _STT_SUBSTITUTIONS.items():
@@ -447,7 +458,7 @@ class Orchestrator:
         # ── Restart ──────────────────────────────────────────────────────────
         # Manual only — never triggered autonomously by the LLM/any tool, only
         # by this exact spoken phrase from a human.
-        if _RESTART_RE.search(text):
+        if self._is_restart(text):
             print("[dann] Restarting.", flush=True)
             self._speak("Okay, restarting now.")
             self.stop()  # releases the wake-word detector + stops the MCP manager
@@ -747,7 +758,7 @@ class Orchestrator:
         self._end_reason = "goodbye"
 
         mode_hint = " Say 'code mode for <project>' to switch to Claude Code mode."
-        print(f"[dann] Session started. Say 'thanks Dann' to stop.{mode_hint}", flush=True)
+        print(f"[dann] Session started. Say 'thanks {self._name}' to stop.{mode_hint}", flush=True)
 
         bus.emit("session.start", {"session_id": self._session_id})
         self._speak("I'm listening.")
