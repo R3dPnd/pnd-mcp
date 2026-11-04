@@ -195,3 +195,33 @@ class TestToolCalling:
             result = generate_response("Loop", tools=[{}], mcp=mock_mcp)
 
         assert mock_mcp.call_tool_with_follow_ups.call_count == _MAX_TOOL_ROUNDS
+
+
+# ── Empty replies ─────────────────────────────────────────────────────────────
+
+class TestEmptyReplyRetry:
+    """qwen3 with think:false sometimes emits a tool call Ollama can't parse and
+    returns neither content nor tool_calls. Retrying that round with thinking
+    allowed gets a real answer (measured live: it then called web_search)."""
+
+    def test_empty_round_is_retried_with_thinking_allowed(self):
+        with patch("voice.llm.ollama.requests.post",
+                   side_effect=[_mock_response(""), _mock_response("Here are some ideas.")]) as post:
+            from voice.llm.ollama import generate_response
+            assert generate_response("side hustles?") == "Here are some ideas."
+        first, second = (c.kwargs["json"] for c in post.call_args_list)
+        assert first["think"] is False
+        assert "think" not in second
+
+    def test_still_empty_after_retry_returns_empty(self):
+        with patch("voice.llm.ollama.requests.post",
+                   side_effect=[_mock_response(""), _mock_response("")]) as post:
+            from voice.llm.ollama import generate_response
+            assert generate_response("side hustles?") == ""
+        assert post.call_count == 2
+
+    def test_a_normal_reply_is_not_retried(self):
+        with patch("voice.llm.ollama.requests.post", return_value=_mock_response("Hi!")) as post:
+            from voice.llm.ollama import generate_response
+            generate_response("hello")
+        assert post.call_count == 1

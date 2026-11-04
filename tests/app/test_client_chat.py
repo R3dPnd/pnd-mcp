@@ -100,3 +100,10 @@ def test_stream_prompt_with_focus_area_keeps_work_stream_text_and_notes(captured
     prompt = chat_service._build_system_prompt(chat_service.load_config(), focus_area="garden")
     assert "text work stream focused on 'garden'" in prompt
     assert prompt.endswith("Notes for 'garden':\nNOTE BODY")
+
+
+def test_an_empty_reply_is_never_shown_as_a_blank_message(client, captured, monkeypatch):
+    monkeypatch.setattr(chat_service, "generate_response", lambda text, **kw: "")
+    body = client.post("/api/v1/chat/client", json={"conversation_id": "c1", "text": "side hustles?"}).json()
+    assert body["response"] == chat_service.EMPTY_REPLY_FALLBACK
+    assert body["response"].strip()

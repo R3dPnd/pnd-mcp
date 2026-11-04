@@ -156,6 +156,17 @@ def generate_response(
         resp.raise_for_status()
         msg = resp.json().get("message", {})
 
+        if not msg.get("tool_calls") and not (msg.get("content") or "").strip():
+            # Neither text nor a tool call: qwen3 with thinking off sometimes
+            # emits a tool call Ollama can't parse, and Ollama drops it. Letting
+            # it think for this one round recovers a real answer (slower, but
+            # only on these rare rounds).
+            print("[llm] Empty reply — retrying this round with thinking allowed.", flush=True)
+            retry = {k: v for k, v in payload.items() if k != "think"}
+            resp = requests.post(url, json=retry, timeout=120)
+            resp.raise_for_status()
+            msg = resp.json().get("message", {})
+
         tool_calls = msg.get("tool_calls")
         if not tool_calls or not mcp:
             return msg.get("content", "").strip()

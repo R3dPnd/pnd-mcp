@@ -30,7 +30,9 @@ from voice.llm.ollama import generate_response
 from integrations.client import get_shared_manager
 
 _MAX_HISTORY = 200  # messages kept per stream; oldest trimmed beyond this
-_DEFAULT_CHAT_MAX_TOKENS = 400  # text doesn't need voice's "1-2 sentences" brevity
+_DEFAULT_CHAT_MAX_TOKENS = 400
+# Shown (and spoken) instead of a blank bubble when the model returns nothing.
+EMPTY_REPLY_FALLBACK = "Sorry, I lost my train of thought there. Could you ask that again?"  # text doesn't need voice's "1-2 sentences" brevity
 _MAX_CONTEXT_CHARS = 8000  # cap on a client's context payload, as JSON text
 _MAX_CLIENT_CONVERSATIONS = 50  # in-memory client conversations; oldest evicted beyond this
 
@@ -213,7 +215,7 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
         session_context={"focus_area": focus_area} if focus_area else None,
     )
     latency_ms = round((time.monotonic() - t0) * 1000)
-    response = response or ""
+    response = response or EMPTY_REPLY_FALLBACK
 
     now = time.time()
     with _lock:
@@ -263,7 +265,7 @@ def send_client_message(conversation_id: str, text: str, context: dict[str, Any]
         keep_alive=ollama_cfg.get("keep_alive"),
     )
     latency_ms = round((time.monotonic() - t0) * 1000)
-    response = response or ""
+    response = response or EMPTY_REPLY_FALLBACK
 
     with _lock:
         messages = _client_conversations.pop(conversation_id, [])  # re-insert to mark most recent
