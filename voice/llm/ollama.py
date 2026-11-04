@@ -12,6 +12,19 @@ if TYPE_CHECKING:
     from integrations.client import MCPManager
 
 _MAX_TOOL_ROUNDS = 5
+
+# "Let me look that up" with no tool call: the turn ends and nothing is running,
+# though it sounds like something is. Seen live with qwen3:8b.
+_ANNOUNCES_ACTION = re.compile(
+    r"\b(?:let me|i'll|i will|i'm going to|i am going to)\s+(?:go\s+ahead\s+and\s+)?"
+    r"(?:look|check|search|find|pull|fetch|grab|get|set|add|open|run)\b",
+    re.IGNORECASE,
+)
+_ACT_NOW_NUDGE = (
+    "You said you would do that, but you didn't call a tool, so nothing happened. "
+    "If one of your tools can do it, call it now. Otherwise answer directly, "
+    "without saying you'll look something up."
+)
 _SENTENCE_END = re.compile(r'(?<=[.!?])\s+')
 _MIN_CHUNK_LEN = 15
 
@@ -132,6 +145,8 @@ def generate_response(
         messages.extend(history)
     messages.append({"role": "user", "content": prompt})
 
+    called_a_tool = False
+    nudged = False
     for _ in range(_MAX_TOOL_ROUNDS):
         payload: dict[str, Any] = {
             "model": model,
@@ -169,8 +184,16 @@ def generate_response(
 
         tool_calls = msg.get("tool_calls")
         if not tool_calls or not mcp:
-            return msg.get("content", "").strip()
+            content = (msg.get("content") or "").strip()
+            if tools and mcp and not called_a_tool and not nudged and _ANNOUNCES_ACTION.search(content):
+                nudged = True
+                print("[llm] Reply promised an action without calling a tool — nudging once.", flush=True)
+                messages.append(msg)
+                messages.append({"role": "system", "content": _ACT_NOW_NUDGE})
+                continue
+            return content
 
+        called_a_tool = True
         messages.append(msg)
         for tc in tool_calls:
             func = tc.get("function", {})

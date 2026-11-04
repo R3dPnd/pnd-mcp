@@ -1,5 +1,7 @@
 """Unit tests for the Ollama LLM client."""
 
+import copy
+
 import pytest
 from unittest.mock import MagicMock, patch, call
 
@@ -225,3 +227,61 @@ class TestEmptyReplyRetry:
             from voice.llm.ollama import generate_response
             generate_response("hello")
         assert post.call_count == 1
+
+
+# ── Announcing an action without doing it ────────────────────────────────────
+
+class TestAnnouncedButNotDone:
+    """The router sometimes ends a turn with "Let me look up …" and no tool
+    call (reproduced live with qwen3:8b, 2 of 4 runs) — nothing is running,
+    but it sounds like something is. It gets one nudge to act or answer."""
+
+    PROMISE = "I can help with that. Let me look up current part-time software engineering listings."
+    SEARCH = {"function": {"name": "web_search", "arguments": {"query": "part-time swe jobs"}}}
+
+    def _run(self, responses, tools=({"name": "web_search"},)):
+        mcp = MagicMock()
+        mcp.call_tool_with_follow_ups.return_value = [("web_search", "3 listings found")]
+        sent = []  # snapshots: the same messages list is mutated across rounds
+        replies = iter(responses)
+
+        def post(url, json=None, **kw):
+            sent.append(copy.deepcopy(json))
+            return next(replies)
+
+        with patch("voice.llm.ollama.requests.post", side_effect=post):
+            from voice.llm.ollama import generate_response
+            result = generate_response("find me part-time swe jobs", tools=list(tools), mcp=mcp)
+        return result, sent, mcp
+
+    def test_a_promise_without_a_tool_call_is_nudged_into_acting(self):
+        result, sent, mcp = self._run([
+            _mock_response(self.PROMISE),
+            _mock_response("", tool_calls=[self.SEARCH]),
+            _mock_response("I found three listings."),
+        ])
+        assert result == "I found three listings."
+        mcp.call_tool_with_follow_ups.assert_called_once()
+        nudged = sent[1]["messages"]
+        assert nudged[-2] == {"content": self.PROMISE}
+        assert nudged[-1]["role"] == "system" and "call" in nudged[-1]["content"].lower()
+
+    def test_only_one_nudge_per_turn(self):
+        result, sent, _ = self._run([_mock_response(self.PROMISE), _mock_response("Let me check that for you.")])
+        assert result == "Let me check that for you."
+        assert len(sent) == 2
+
+    def test_an_ordinary_answer_is_not_nudged(self):
+        result, sent, _ = self._run([_mock_response("Freelancing and consulting are good options.")])
+        assert len(sent) == 1
+
+    def test_no_nudge_after_a_tool_already_ran(self):
+        result, sent, _ = self._run([
+            _mock_response("", tool_calls=[self.SEARCH]),
+            _mock_response("Let me know if you want me to check other cities."),
+        ])
+        assert len(sent) == 2
+
+    def test_no_nudge_without_tools(self):
+        result, sent, _ = self._run([_mock_response(self.PROMISE)], tools=())
+        assert len(sent) == 1
