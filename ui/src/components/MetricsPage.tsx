@@ -53,7 +53,7 @@ export default function MetricsPage() {
   const tooltipStyle = {
     contentStyle: { backgroundColor: '#1f2937', border: 'none', borderRadius: 6 },
     labelStyle: { color: '#e5e7eb' },
-    itemStyle: { color: '#60a5fa' },
+    itemStyle: { color: 'rgb(var(--pnd-accent-400))' },
   }
 
   if (loading) {
@@ -91,7 +91,7 @@ export default function MetricsPage() {
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
-              <Bar dataKey="calls" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="calls" fill="rgb(var(--pnd-accent-500))" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

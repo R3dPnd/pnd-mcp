@@ -32,6 +32,7 @@ class Persona:
     data_dir: Path = Path("~/.dann")
     api_port: int = 8000
     ui_port: int = 3000
+    theme: str = ""  # dashboard colour theme; "" = the original look
 
 
 def persona_from_config(cfg: dict[str, Any] | None) -> Persona:
@@ -44,6 +45,7 @@ def persona_from_config(cfg: dict[str, Any] | None) -> Persona:
         data_dir=Path(block.get("data_dir") or defaults.data_dir).expanduser(),
         api_port=int(block.get("api_port") or defaults.api_port),
         ui_port=int(block.get("ui_port") or defaults.ui_port),
+        theme=str(block.get("theme") or defaults.theme),
     )
 
 

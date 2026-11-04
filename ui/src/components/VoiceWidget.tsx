@@ -6,11 +6,11 @@ import type { PipelineStage } from '../types'
 // ── Mini orb ──────────────────────────────────────────────────────────────────
 
 const ORB_CONFIG: Record<PipelineStage, { border: string; glow: string; pulse: boolean; spin: boolean }> = {
-  idle:      { border: '#00ddff33', glow: 'none',                       pulse: true,  spin: false },
+  idle:      { border: 'rgb(var(--pnd-glow) / 0.2)', glow: 'none',                       pulse: true,  spin: false },
   wake:      { border: '#ff9900cc', glow: '0 0 10px #ff990088',         pulse: true,  spin: false },
   recording: { border: '#ff3377cc', glow: '0 0 10px #ff337788',         pulse: true,  spin: false },
-  thinking:  { border: '#4488ff',   glow: '0 0 10px #4488ff88',         pulse: false, spin: true  },
-  speaking:  { border: '#00ffddcc', glow: '0 0 10px #00ffdd88',         pulse: true,  spin: false },
+  thinking:  { border: 'rgb(var(--pnd-accent-text))',   glow: '0 0 10px rgb(var(--pnd-accent-text) / 0.533)',         pulse: false, spin: true  },
+  speaking:  { border: 'rgb(var(--pnd-voice-text) / 0.8)', glow: '0 0 10px rgb(var(--pnd-voice-text) / 0.533)',         pulse: true,  spin: false },
 }
 
 function MiniOrb({ stage }: { stage: PipelineStage }) {
@@ -57,6 +57,7 @@ export function VoiceWidget() {
   const pipelineStage  = useDannStore((s) => s.pipelineStage)
   const liveResponse   = useDannStore((s) => s.liveResponse)
   const wakePhrase     = useDannStore((s) => s.persona.wake_phrase)
+  const personaName = useDannStore((s) => s.persona.name)
   const pendingStt     = useDannStore((s) => s._pendingStt)
   const voiceListening = useDannStore((s) => s.voiceListening)
   const running        = useDannStore((s) => s.running)
@@ -113,7 +114,7 @@ export function VoiceWidget() {
 
       {/* Controls */}
       <div className="flex items-center gap-2 shrink-0 ml-auto">
-        {/* Enable listening — shown when voice is off and Dann is running */}
+        {/* Enable listening — shown when voice is off and the persona is running */}
         {!inSession && !voiceListening && running && (
           <button
             onClick={handleToggleMic}
@@ -139,7 +140,7 @@ export function VoiceWidget() {
         <button
           onClick={handleToggleMic}
           disabled={toggling || inSession || !running}
-          title={!running ? 'Dann not running' : voiceListening ? 'Mute' : 'Unmute'}
+          title={!running ? `${personaName} not running` : voiceListening ? 'Mute' : 'Unmute'}
           className={`flex items-center justify-center w-7 h-7 rounded-full border transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
             voiceListening && running
               ? 'border-teal-600/60 text-teal-500 hover:border-teal-400 hover:text-teal-300 hover:bg-teal-900/10'

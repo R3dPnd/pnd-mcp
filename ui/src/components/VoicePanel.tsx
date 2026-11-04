@@ -177,6 +177,7 @@ export function VoicePanel() {
   const active    = running && voiceListening
   const stageInfo = STAGE_INFO[pipelineStage]
   const wakePhrase = useDannStore(s => s.persona.wake_phrase)
+  const personaName = useDannStore((s) => s.persona.name)
   const stageLabel = pipelineStage === 'idle' ? `Listening for '${wakePhrase}'` : stageInfo.label
 
   // Load persisted history once on mount
@@ -238,8 +239,8 @@ export function VoicePanel() {
         <div
           className="w-2 h-2 rounded-full"
           style={{
-            background:  active ? '#00ffdd' : wsConnected ? '#333' : '#ff3377',
-            boxShadow:   active ? '0 0 6px #00ffdd88' : 'none',
+            background:  active ? 'rgb(var(--pnd-voice-text))' : wsConnected ? '#333' : '#ff3377',
+            boxShadow:   active ? '0 0 6px rgb(var(--pnd-voice-text) / 0.533)' : 'none',
           }}
         />
       </div>
@@ -300,7 +301,7 @@ export function VoicePanel() {
           <button
             onClick={handleToggle}
             disabled={toggling || inSession || !running}
-            title={!running ? 'Dann not running' : voiceListening ? 'Mute' : 'Unmute'}
+            title={!running ? `${personaName} not running` : voiceListening ? 'Mute' : 'Unmute'}
             className={`flex items-center justify-center w-7 h-7 rounded-full border transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
               voiceListening && running
                 ? 'border-teal-600/60 text-teal-500 hover:border-teal-400 hover:text-teal-300 hover:bg-teal-900/10'

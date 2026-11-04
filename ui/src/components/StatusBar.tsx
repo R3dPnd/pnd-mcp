@@ -34,6 +34,7 @@ const STAGE_CONFIG: Record<PipelineStage, { label: string; color: string }> = {
 }
 
 export function StatusBar() {
+  const personaName = useDannStore((s) => s.persona.name)
   const mode = useDannStore((s) => s.mode)
   const project = useDannStore((s) => s.project)
   const wsConnected = useDannStore((s) => s.wsConnected)
@@ -49,7 +50,7 @@ export function StatusBar() {
   const activeModules = modules.filter((m) => m.enabled && !m.always_on)
 
   const handleRestart = async () => {
-    if (!window.confirm('Restart Dann? This will drop any active voice session and reconnect the dashboard.')) return
+    if (!window.confirm(`Restart ${personaName}? This will drop any active voice session and reconnect the dashboard.`)) return
     setRestarting(true)
     try {
       await api.restartDann()
@@ -61,7 +62,7 @@ export function StatusBar() {
   return (
     <header className="status-bar sticky top-0 z-30 flex items-center justify-between bg-zinc-950/90 px-4 py-2 backdrop-blur">
       {/* Left: app name */}
-      <span className="text-sm font-semibold tracking-wide text-neon-blue">Dann</span>
+      <span className="text-sm font-semibold tracking-wide text-neon-blue">{personaName}</span>
 
       {/* Centre: mode pill + pipeline stage */}
       <div className="flex items-center gap-3">
@@ -84,7 +85,7 @@ export function StatusBar() {
       {/* Right: active modules + restart + WS connection indicator */}
       <div className="flex items-center gap-3">
         {activeModules.length > 0 && (
-          <div className="flex items-center gap-1.5" title="Modules Dann currently has active">
+          <div className="flex items-center gap-1.5" title={`Modules ${personaName} currently has active`}>
             {activeModules.map((m) => (
               <span
                 key={m.name}
@@ -100,7 +101,7 @@ export function StatusBar() {
         <button
           onClick={handleRestart}
           disabled={restarting}
-          title="Restart Dann"
+          title={`Restart ${personaName}`}
           className="text-xs text-zinc-600 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {restarting ? 'restarting…' : '⟳'}

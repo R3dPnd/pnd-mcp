@@ -50,3 +50,8 @@ def test_blank_persona_values_fall_back_to_defaults():
     p = persona_from_config({"persona": {"name": None, "wake_phrase": None, "data_dir": None}})
     assert (p.name, p.wake_phrase) == ("Dann", "ok Dann")
     assert p.data_dir == Path.home() / ".dann"
+
+
+def test_theme_defaults_to_empty_and_reads_config():
+    assert persona_from_config(None).theme == ""
+    assert persona_from_config({"persona": {"theme": "rose"}}).theme == "rose"

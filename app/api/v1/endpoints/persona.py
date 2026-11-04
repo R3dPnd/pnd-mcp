@@ -10,7 +10,7 @@ from shared.persona import get_persona
 router = APIRouter()
 
 
-@router.get("", summary="Persona name and wake phrase")
+@router.get("", summary="Persona name, wake phrase and UI theme")
 async def get_persona_info() -> JSONResponse:
     persona = get_persona()
-    return JSONResponse({"name": persona.name, "wake_phrase": persona.wake_phrase})
+    return JSONResponse({"name": persona.name, "wake_phrase": persona.wake_phrase, "theme": persona.theme})

@@ -1,3 +1,5 @@
+@import './theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,24 +33,24 @@
 
   input:focus, select:focus {
     outline: none;
-    box-shadow: 0 0 0 1px #00ddff, 0 0 8px #00ddff55;
+    box-shadow: 0 0 0 1px rgb(var(--pnd-glow)), 0 0 8px rgb(var(--pnd-glow) / 0.333);
   }
 
   ::-webkit-scrollbar       { width: 6px; }
-  ::-webkit-scrollbar-track { background: #06060a; }
+  ::-webkit-scrollbar-track { background: rgb(var(--pnd-scroll-track)); }
   ::-webkit-scrollbar-thumb {
-    background: #00ddff33;
+    background: rgb(var(--pnd-glow) / 0.2);
     border-radius: 9999px;
   }
-  ::-webkit-scrollbar-thumb:hover { background: #00ddff77; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--pnd-glow) / 0.467); }
 }
 
 /* ── Section accent borders ───────────────────────────────────────────────── */
 
 /* Status bar — electric blue */
 header.status-bar {
-  border-bottom: 1px solid #0044ff55;
-  box-shadow: 0 1px 16px #0044ff20;
+  border-bottom: 1px solid rgb(var(--pnd-accent-600) / 0.333);
+  box-shadow: 0 1px 16px rgb(var(--pnd-accent-600) / 0.125);
 }
 
 /* Metrics bar — orange */
@@ -61,28 +63,28 @@ header.status-bar {
 
 /* Projects panel — blue active card glow */
 .border-blue-600 {
-  border-color: #2266ff !important;
-  box-shadow: 0 0 12px #0044ff44, inset 0 0 8px #0044ff0a;
+  border-color: rgb(var(--pnd-accent-500)) !important;
+  box-shadow: 0 0 12px rgb(var(--pnd-accent-600) / 0.267), inset 0 0 8px rgb(var(--pnd-accent-600) / 0.039);
 }
 
 /* Voice/conversation — teal Dann bubbles, blue user bubbles */
 .voice-dann-bubble {
-  background: #00ffdd0e;
-  border: 1px solid #00ffdd33;
-  color: #aaffee;
-  box-shadow: inset 0 0 6px #00ffdd08;
+  background: rgb(var(--pnd-voice-text) / 0.055);
+  border: 1px solid rgb(var(--pnd-voice-text) / 0.2);
+  color: rgb(var(--pnd-voice-200));
+  box-shadow: inset 0 0 6px rgb(var(--pnd-voice-text) / 0.031);
 }
 .voice-user-bubble {
-  background: #0044ff18;
-  border: 1px solid #2266ff44;
-  color: #bbddff;
+  background: rgb(var(--pnd-accent-600) / 0.094);
+  border: 1px solid rgb(var(--pnd-accent-500) / 0.267);
+  color: rgb(var(--pnd-accent-200));
 }
 
 /* Voice widget — persistent bottom strip */
 .voice-widget {
-  border-top: 1px solid #00ffdd18;
-  background: #00ffdd04;
-  box-shadow: 0 -1px 12px #00ffdd08;
+  border-top: 1px solid rgb(var(--pnd-voice-text) / 0.094);
+  background: rgb(var(--pnd-voice-text) / 0.016);
+  box-shadow: 0 -1px 12px rgb(var(--pnd-voice-text) / 0.031);
 }
 
 /* Log panel — red top border */
@@ -104,7 +106,7 @@ header.status-bar {
 }
 
 /* Idle pill */
-.bg-zinc-700 { background-color: #111b35 !important; }
+.bg-zinc-700 { background-color: rgb(var(--pnd-base-700)) !important; }
 
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 
@@ -113,9 +115,9 @@ header.status-bar {
     animation: pulse-dot 1.5s ease-in-out infinite;
     box-shadow: 0 0 6px currentColor;
   }
-  .text-neon-blue    { color: #4488ff; text-shadow: 0 0 8px #2266ff, 0 0 20px #0044ff88; }
-  .text-neon-cyan    { color: #00ddff; text-shadow: 0 0 8px #00ddff, 0 0 20px #00ddff66; }
-  .text-neon-teal    { color: #00ffdd; text-shadow: 0 0 8px #00ffdd, 0 0 20px #00ffdd66; }
+  .text-neon-blue    { color: rgb(var(--pnd-accent-text)); text-shadow: 0 0 8px rgb(var(--pnd-accent-500)), 0 0 20px rgb(var(--pnd-accent-600) / 0.533); }
+  .text-neon-cyan    { color: rgb(var(--pnd-glow)); text-shadow: 0 0 8px rgb(var(--pnd-glow)), 0 0 20px rgb(var(--pnd-glow) / 0.4); }
+  .text-neon-teal    { color: rgb(var(--pnd-voice-text)); text-shadow: 0 0 8px rgb(var(--pnd-voice-text)), 0 0 20px rgb(var(--pnd-voice-text) / 0.4); }
   .text-neon-green   { color: #00ff88; text-shadow: 0 0 8px #00ff88, 0 0 20px #00ff8866; }
   .text-neon-orange  { color: #ff9900; text-shadow: 0 0 8px #ff9900, 0 0 20px #ff990066; }
   .text-neon-violet  { color: #aa44ff; text-shadow: 0 0 8px #aa44ff, 0 0 20px #aa44ff66; }
@@ -154,14 +156,14 @@ header.status-bar {
 
 /* Idle — dim cyan, slow breathing */
 .dann-orb-idle {
-  border: 2px solid #00ddff33;
-  background: radial-gradient(circle at center, #00ddff0d 0%, transparent 70%);
-  box-shadow: 0 0 16px #00ddff1a, inset 0 0 12px #00ddff0a;
+  border: 2px solid rgb(var(--pnd-glow) / 0.2);
+  background: radial-gradient(circle at center, rgb(var(--pnd-glow) / 0.051) 0%, transparent 70%);
+  box-shadow: 0 0 16px rgb(var(--pnd-glow) / 0.102), inset 0 0 12px rgb(var(--pnd-glow) / 0.039);
   animation: dann-breathe 3s ease-in-out infinite;
 }
 @keyframes dann-breathe {
-  0%, 100% { opacity: 0.45; box-shadow: 0 0 12px #00ddff18, inset 0 0 10px #00ddff08; }
-  50%       { opacity: 1;    box-shadow: 0 0 32px #00ddff44, inset 0 0 20px #00ddff18; }
+  0%, 100% { opacity: 0.45; box-shadow: 0 0 12px rgb(var(--pnd-glow) / 0.094), inset 0 0 10px rgb(var(--pnd-glow) / 0.031); }
+  50%       { opacity: 1;    box-shadow: 0 0 32px rgb(var(--pnd-glow) / 0.267), inset 0 0 20px rgb(var(--pnd-glow) / 0.094); }
 }
 
 /* Wake — orange burst, fast pulse */
@@ -208,10 +210,10 @@ header.status-bar {
 
 /* Thinking — blue spinner arc */
 .dann-orb-thinking {
-  border: 3px solid #4488ff22;
-  border-top-color: #4488ff;
-  background: radial-gradient(circle at center, #4488ff0a 0%, transparent 70%);
-  box-shadow: 0 0 20px #4488ff33;
+  border: 3px solid rgb(var(--pnd-accent-text) / 0.133);
+  border-top-color: rgb(var(--pnd-accent-text));
+  background: radial-gradient(circle at center, rgb(var(--pnd-accent-text) / 0.039) 0%, transparent 70%);
+  box-shadow: 0 0 20px rgb(var(--pnd-accent-text) / 0.2);
   animation: dann-spin 0.9s linear infinite;
 }
 @keyframes dann-spin {
@@ -235,8 +237,8 @@ header.status-bar {
   flex: 1;
   min-height: calc(var(--dann-orb-size, 88px) * 0.09);
   border-radius: 2px 2px 0 0;
-  background: linear-gradient(to top, #00ffdd, #00ffdd88);
-  box-shadow: 0 0 8px #00ffdd77;
+  background: linear-gradient(to top, rgb(var(--pnd-voice-text)), rgb(var(--pnd-voice-text) / 0.533));
+  box-shadow: 0 0 8px rgb(var(--pnd-voice-text) / 0.467);
   animation: dann-eq 0.8s ease-in-out infinite alternate;
 }
 @keyframes dann-eq {

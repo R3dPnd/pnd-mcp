@@ -154,7 +154,7 @@ export default function SystemPanel() {
               <XAxis dataKey="core" tick={{ fontSize: 10, fill: '#9ca3af' }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v.toFixed(0)}%`, 'Load']} />
-              <Bar dataKey="percent" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="percent" fill="rgb(var(--pnd-accent-500))" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -188,7 +188,7 @@ export default function SystemPanel() {
               <XAxis dataKey="index" tick={{ fontSize: 10, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} unit="ms" />
               <Tooltip {...tooltipStyle} />
-              <Line type="monotone" dataKey="stt" name="STT" stroke="#3b82f6" dot={false} connectNulls />
+              <Line type="monotone" dataKey="stt" name="STT" stroke="rgb(var(--pnd-accent-500))" dot={false} connectNulls />
               <Line type="monotone" dataKey="llm" name="LLM" stroke="#22c55e" dot={false} connectNulls />
               <Line type="monotone" dataKey="tts" name="TTS" stroke="#f59e0b" dot={false} connectNulls />
               <Line type="monotone" dataKey="chat" name="Chat" stroke="#a855f7" dot={false} connectNulls />

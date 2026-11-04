@@ -78,6 +78,7 @@ function ModuleCard({ mod }: { mod: Module }) {
 }
 
 export function ModulesPanel() {
+  const personaName = useDannStore((s) => s.persona.name)
   const modules = useDannStore((s) => s.modules)
 
   if (modules.length === 0) {
@@ -92,7 +93,7 @@ export function ModulesPanel() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-zinc-500">
-        Optional modules start on demand — Dann enables one itself the first time a turn needs it,
+        Optional modules start on demand — {personaName} enables one itself the first time a turn needs it,
         or start one here yourself.
       </p>
       {modules.map((mod) => (

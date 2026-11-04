@@ -1,0 +1,84 @@
+/* Persona colour themes. Each value is an "R G B" triple so Tailwind and
+   rgb(var(--x) / alpha) can apply opacity. :root is the original look;
+   a persona sets persona.theme in config.yaml and the dashboard puts it on
+   <html data-theme=...>. Status colours (green/orange/red/violet/yellow)
+   stay fixed across themes so they keep their meaning. */
+:root {
+  --pnd-base-950: 4 8 15;
+  --pnd-base-900: 7 13 26;
+  --pnd-base-800: 11 18 37;
+  --pnd-base-700: 17 27 53;
+  --pnd-base-600: 26 45 85;
+  --pnd-base-500: 58 80 128;
+  --pnd-base-400: 102 136 187;
+  --pnd-base-300: 153 184 221;
+  --pnd-base-200: 204 218 238;
+  --pnd-base-100: 232 238 248;
+  --pnd-base-50: 244 247 252;
+  --pnd-accent-950: 0 4 15;
+  --pnd-accent-900: 0 10 34;
+  --pnd-accent-800: 0 18 68;
+  --pnd-accent-700: 0 34 136;
+  --pnd-accent-600: 0 68 255;
+  --pnd-accent-500: 34 102 255;
+  --pnd-accent-400: 85 153 255;
+  --pnd-accent-300: 136 187 255;
+  --pnd-accent-200: 187 221 255;
+  --pnd-accent-100: 221 238 255;
+  --pnd-accent-50: 238 245 255;
+  --pnd-voice-950: 0 26 24;
+  --pnd-voice-900: 0 51 48;
+  --pnd-voice-800: 0 77 71;
+  --pnd-voice-700: 0 122 114;
+  --pnd-voice-600: 0 187 170;
+  --pnd-voice-500: 0 255 238;
+  --pnd-voice-400: 0 255 221;
+  --pnd-voice-300: 102 255 238;
+  --pnd-voice-200: 170 255 238;
+  --pnd-voice-100: 221 255 248;
+  --pnd-voice-50: 240 255 253;
+  --pnd-glow: 0 221 255;
+  --pnd-accent-text: 68 136 255;
+  --pnd-voice-text: 0 255 221;
+  --pnd-scroll-track: 6 6 10;
+}
+
+[data-theme="rose"] {
+  --pnd-base-950: 14 7 9;
+  --pnd-base-900: 22 10 14;
+  --pnd-base-800: 33 16 21;
+  --pnd-base-700: 50 22 31;
+  --pnd-base-600: 75 32 48;
+  --pnd-base-500: 120 57 76;
+  --pnd-base-400: 173 111 131;
+  --pnd-base-300: 212 162 177;
+  --pnd-base-200: 235 208 216;
+  --pnd-base-100: 248 232 237;
+  --pnd-base-50: 253 244 246;
+  --pnd-accent-950: 26 5 16;
+  --pnd-accent-900: 58 10 31;
+  --pnd-accent-800: 92 16 48;
+  --pnd-accent-700: 138 24 64;
+  --pnd-accent-600: 200 30 82;
+  --pnd-accent-500: 232 67 110;
+  --pnd-accent-400: 242 112 143;
+  --pnd-accent-300: 247 160 180;
+  --pnd-accent-200: 251 200 212;
+  --pnd-accent-100: 253 227 234;
+  --pnd-accent-50: 255 241 244;
+  --pnd-voice-950: 31 10 16;
+  --pnd-voice-900: 61 21 34;
+  --pnd-voice-800: 94 34 54;
+  --pnd-voice-700: 143 58 85;
+  --pnd-voice-600: 201 95 128;
+  --pnd-voice-500: 240 138 168;
+  --pnd-voice-400: 246 168 191;
+  --pnd-voice-300: 249 195 211;
+  --pnd-voice-200: 252 221 230;
+  --pnd-voice-100: 254 238 243;
+  --pnd-voice-50: 255 247 249;
+  --pnd-glow: 255 159 178;
+  --pnd-accent-text: 242 112 143;
+  --pnd-voice-text: 246 168 191;
+  --pnd-scroll-track: 14 7 9;
+}

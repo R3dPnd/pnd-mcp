@@ -18,6 +18,7 @@ function label(t: TerminalSession): string {
 }
 
 export function TerminalIndicator() {
+  const personaName = useDannStore((s) => s.persona.name)
   const terminals = useDannStore((s) => s.terminals)
   const dannTerminals = terminals.filter((t) => t.origin === 'dann' && t.alive)
 
@@ -42,7 +43,7 @@ export function TerminalIndicator() {
     <>
       <button
         onClick={() => setOpen(true)}
-        title="Dann is using Claude Code — click to watch"
+        title={`${personaName} is using Claude Code — click to watch`}
         className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-zinc-900 px-3 py-2 text-emerald-400 shadow-lg hover:bg-zinc-800"
       >
         <span className="relative flex h-2 w-2">

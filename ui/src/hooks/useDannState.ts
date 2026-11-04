@@ -340,6 +340,9 @@ export const useDannStore = create<DannStore>((set) => ({
   toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
   setPersona: (persona) => {
     document.title = persona.name
+    // Colour theme: src/theme.css swaps the identity palette under [data-theme].
+    if (persona.theme) document.documentElement.dataset.theme = persona.theme
+    else delete document.documentElement.dataset.theme
     set({ persona })
   },
 }))

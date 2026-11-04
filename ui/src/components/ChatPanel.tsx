@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
+import { useDannStore } from '../hooks/useDannState'
 import type { ChatMessage, FocusArea, WorkStream } from '../types'
 
 function relTime(ms: number): string {
@@ -73,6 +74,7 @@ function NewStreamForm({
 }
 
 export default function ChatPanel() {
+  const personaName = useDannStore((s) => s.persona.name)
   const [streams, setStreams] = useState<WorkStream[]>([])
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -117,7 +119,7 @@ export default function ChatPanel() {
 
   async function handleClear() {
     if (!activeId) return
-    if (!window.confirm('Clear this conversation? Dann will start fresh with no memory of it.')) return
+    if (!window.confirm(`Clear this conversation? ${personaName} will start fresh with no memory of it.`)) return
     setError(null)
     try {
       const cleared = await api.clearStream(activeId)
@@ -148,7 +150,7 @@ export default function ChatPanel() {
         return updated.sort((a, b) => b.updated_at - a.updated_at)
       })
     } catch {
-      setError('Dann could not respond — is Ollama running?')
+      setError(`${personaName} could not respond — is Ollama running?`)
     } finally {
       setSending(false)
     }
@@ -210,7 +212,7 @@ export default function ChatPanel() {
 
       {!active ? (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">
-          Select or create a work stream to start chatting with Dann.
+          Select or create a work stream to start chatting with {personaName}.
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 flex-col">
@@ -233,7 +235,7 @@ export default function ChatPanel() {
                 onClick={handleClear}
                 disabled={active.messages.length === 0}
                 className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 disabled:opacity-30"
-                title="Clear this conversation's history — Dann starts fresh"
+                title={`Clear this conversation's history — ${personaName} starts fresh`}
               >
                 Clear
               </button>
@@ -262,7 +264,7 @@ export default function ChatPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              placeholder="Message Dann…"
+              placeholder={`Message ${personaName}…`}
               disabled={sending}
               className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 disabled:opacity-50"
             />

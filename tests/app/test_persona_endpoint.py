@@ -23,9 +23,14 @@ def client_with_config(tmp_path, monkeypatch):
 
 def test_persona_endpoint_defaults(client_with_config):
     client = client_with_config("ollama: {}\n")
-    assert client.get("/api/v1/persona").json() == {"name": "Dann", "wake_phrase": "ok Dann"}
+    assert client.get("/api/v1/persona").json() == {"name": "Dann", "wake_phrase": "ok Dann", "theme": ""}
 
 
 def test_persona_endpoint_reads_config(client_with_config):
     client = client_with_config("persona:\n  name: Akane\n  wake_phrase: ok Akane\n")
-    assert client.get("/api/v1/persona").json() == {"name": "Akane", "wake_phrase": "ok Akane"}
+    assert client.get("/api/v1/persona").json() == {"name": "Akane", "wake_phrase": "ok Akane", "theme": ""}
+
+
+def test_persona_endpoint_reports_the_ui_theme(client_with_config):
+    client = client_with_config("persona:\n  name: Akane\n  theme: rose\n")
+    assert client.get("/api/v1/persona").json()["theme"] == "rose"

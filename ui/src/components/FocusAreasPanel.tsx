@@ -169,6 +169,7 @@ function FocusAreaCard({ area }: { area: FocusArea }) {
 }
 
 export function FocusAreasPanel() {
+  const personaName = useDannStore((s) => s.persona.name)
   const focusAreas = useDannStore((s) => s.focusAreas)
 
   if (focusAreas.length === 0) {
@@ -183,8 +184,8 @@ export function FocusAreasPanel() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-zinc-500">
-        Topics Dann leans into — asks follow-ups on, connects new information to. A module badge
-        means real data backs it; without one, it's just something Dann knows you care about.
+        Topics {personaName} leans into — asks follow-ups on, connects new information to. A module badge
+        means real data backs it; without one, it's just something {personaName} knows you care about.
         Click a card to see or add its saved notes — permanent context included in every future
         conversation about it.
       </p>
