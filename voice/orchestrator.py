@@ -16,6 +16,7 @@ import numpy as np
 
 from shared.agents_config import build_routing_prompt
 from shared.focus_areas_config import build_focus_areas_prompt
+from shared.user_context import build_user_prompt
 from shared.persona import persona_from_config
 from voice.audio import play_wav, record_until_silence
 from voice.audio.capture import save_wav
@@ -138,6 +139,9 @@ class Orchestrator:
         if focus_section:
             base_prompt = self._ollama_cfg.get("system_prompt", "")
             self._ollama_cfg["system_prompt"] = f"{base_prompt}\n\n{focus_section}"
+        user_section = build_user_prompt(self.config.get("user"))
+        if user_section:
+            self._ollama_cfg["system_prompt"] = f"{self._ollama_cfg.get('system_prompt', '')}\n\n{user_section}"
         self._tts_cfg = self.config.get("tts", {})
         self._ux_cfg = self.config.get("ux", {})
         self._mcp_cfg = self.config.get("mcp", {})

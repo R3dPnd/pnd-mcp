@@ -22,6 +22,7 @@ from typing import Any
 
 from shared.agents_config import build_routing_prompt
 from shared.focus_areas_config import build_focus_areas_prompt
+from shared.user_context import build_user_prompt
 from shared.focus_areas_store import read_focus_area_context
 from shared.persona import data_dir
 from voice.config import load_config
@@ -159,6 +160,9 @@ def _build_system_prompt(cfg: dict[str, Any], focus_area: str = "", context: dic
     focus_section = build_focus_areas_prompt(cfg.get("focus_areas"))
     if focus_section:
         system_prompt += f"\n\n{focus_section}"
+    user_section = build_user_prompt(cfg.get("user"))
+    if user_section:
+        system_prompt += f"\n\n{user_section}"
     if focus_area:
         system_prompt += (
             f"\n\nThis conversation is a text work stream focused on "
