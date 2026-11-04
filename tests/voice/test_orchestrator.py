@@ -183,3 +183,76 @@ class TestNormalise:
 def test_session_mode_starts_normal(orch):
     assert orch._mode == SessionMode.NORMAL
     assert orch._code_project is None
+
+
+# ── Speaking typed-chat replies ───────────────────────────────────────────────
+
+@pytest.fixture()
+def speaking_orch(minimal_config):
+    """Orchestrator with ux.speak_typed_replies on, a fake detector, and _speak
+    recorded instead of synthesizing audio."""
+    cfg = {**minimal_config, "ux": {"speak_typed_replies": True}}
+    with patch("voice.orchestrator.load_config", return_value=cfg):
+        o = Orchestrator()
+
+    class FakeDetector:
+        def __init__(self):
+            self.calls = []
+
+        def pause(self):
+            self.calls.append("pause")
+
+        def resume(self):
+            self.calls.append("resume")
+
+    o._detector = FakeDetector()
+    o.spoken = []
+    o._speak = lambda text: o.spoken.append((text, list(o._detector.calls))) or 0.0
+    return o
+
+
+class TestSpeakTypedReplies:
+    def test_typed_reply_is_queued_then_spoken_when_idle(self, speaking_orch):
+        speaking_orch._on_bus_event("chat.turn", {"text": "hi", "response": "Hello there."})
+        assert speaking_orch.spoken == []  # nothing spoken from the emitting (API) thread
+        speaking_orch._speak_queued()
+        assert [t for t, _ in speaking_orch.spoken] == ["Hello there."]
+
+    def test_wake_detection_is_paused_while_speaking(self, speaking_orch):
+        speaking_orch._on_bus_event("chat.turn", {"response": "Hello there."})
+        speaking_orch._speak_queued()
+        (_, calls_during_speech), = speaking_orch.spoken
+        assert calls_during_speech == ["pause"]
+        assert speaking_orch._detector.calls == ["pause", "resume"]
+
+    def test_a_wake_heard_during_its_own_speech_is_discarded(self, speaking_orch):
+        speaking_orch._on_bus_event("chat.turn", {"response": "Hello there."})
+        speaking_orch._wake_event.set()  # e.g. the mic picked up the TTS
+        speaking_orch._speak_queued()
+        assert not speaking_orch._wake_event.is_set()
+
+    def test_replies_are_spoken_in_order(self, speaking_orch):
+        for reply in ("One.", "Two."):
+            speaking_orch._on_bus_event("chat.turn", {"response": reply})
+        speaking_orch._speak_queued()
+        assert [t for t, _ in speaking_orch.spoken] == ["One.", "Two."]
+
+    def test_empty_replies_and_other_events_are_ignored(self, speaking_orch):
+        speaking_orch._on_bus_event("chat.turn", {"response": "   "})
+        speaking_orch._on_bus_event("turn.llm", {"response": "voice reply, already spoken"})
+        speaking_orch._speak_queued()
+        assert speaking_orch.spoken == []
+
+    def test_nothing_queued_means_no_detector_churn(self, speaking_orch):
+        speaking_orch._speak_queued()
+        assert speaking_orch._detector.calls == []
+
+    def test_off_by_default(self, orch):
+        orch._on_bus_event("chat.turn", {"response": "Hello there."})
+        assert orch._speech_queue.empty()
+
+    def test_speaking_does_not_unmute_a_user_paused_listener(self, speaking_orch):
+        speaking_orch._user_paused = True
+        speaking_orch._on_bus_event("chat.turn", {"response": "Hello there."})
+        speaking_orch._speak_queued()
+        assert speaking_orch._detector.calls == ["pause"]

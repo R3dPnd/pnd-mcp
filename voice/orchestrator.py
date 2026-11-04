@@ -1,6 +1,7 @@
 """Orchestrates wake word -> session (multi-turn) -> STT -> LLM -> TTS -> playback."""
 
 import json
+import queue
 import re
 import tempfile
 import threading
@@ -143,8 +144,42 @@ class Orchestrator:
         self._code_project: str | None = None
         self._session_id: str | None = None
         self._started_at: float = time.time()
+        # Typed-chat replies waiting to be spoken (ux.speak_typed_replies).
+        # Filled from the API thread via the event bus; drained by the main
+        # loop only while idle, so they never interrupt a voice session.
+        self._speech_queue: queue.Queue[str] = queue.Queue()
 
     # ── Callbacks ─────────────────────────────────────────────────────────────
+
+    def _on_bus_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        """Queue each typed-chat reply to be read aloud, when the persona's
+        `ux.speak_typed_replies` is on. Runs on the emitting (API) thread, so
+        it only enqueues."""
+        if event_type != "chat.turn" or not self._ux_cfg.get("speak_typed_replies", False):
+            return
+        response = (payload.get("response") or "").strip()
+        if response:
+            self._speech_queue.put(response)
+
+    def _speak_queued(self) -> None:
+        """Speak every queued typed-chat reply, in order. Wake detection is
+        paused meanwhile, and any wake heard during the speech is dropped — it
+        would be the mic picking up the persona's own voice."""
+        if self._speech_queue.empty():
+            return
+        if self._detector:
+            self._detector.pause()
+        try:
+            while True:
+                try:
+                    text = self._speech_queue.get_nowait()
+                except queue.Empty:
+                    break
+                self._speak(text)
+        finally:
+            self._wake_event.clear()
+            if self._detector and not self._user_paused:  # don't undo a user's mute
+                self._detector.resume()
 
     def _on_wake(self, score: float = 1.0) -> None:
         self._wake_score = score
@@ -806,38 +841,42 @@ class Orchestrator:
 
         print(f"[dann] Listening for '{wake_phrase}'... (Ctrl+C to stop)", flush=True)
         self._detector.start()
+        bus.subscribe(self._on_bus_event)
 
         try:
             while self._running:
-                if self._wake_event.wait(timeout=0.5):
-                    self._wake_event.clear()
-                    now = time.monotonic()
-                    since_tts = (now - self._last_tts_finished_at) if self._last_tts_finished_at is not None else None
-                    since_session_end = (now - self._last_session_ended_at) if self._last_session_ended_at is not None else None
-                    print(f"[dann] Wake word detected (score={self._wake_score:.2f}).", flush=True)
-                    bus.emit("wake.detected", {
-                        "score": self._wake_score,
-                        "since_tts_s": since_tts,
-                        "since_session_end_s": since_session_end,
+                if not self._wake_event.wait(timeout=0.5):
+                    self._speak_queued()
+                    continue
+                self._wake_event.clear()
+                now = time.monotonic()
+                since_tts = (now - self._last_tts_finished_at) if self._last_tts_finished_at is not None else None
+                since_session_end = (now - self._last_session_ended_at) if self._last_session_ended_at is not None else None
+                print(f"[dann] Wake word detected (score={self._wake_score:.2f}).", flush=True)
+                bus.emit("wake.detected", {
+                    "score": self._wake_score,
+                    "since_tts_s": since_tts,
+                    "since_session_end_s": since_session_end,
+                })
+                # A session ending and a fresh wake firing seconds later is
+                # exactly the shape of the mic picking up Dann's own TTS
+                # output as a false "ok Dann" — genuinely happened live,
+                # repeatedly, right after a goodbye response. Real user
+                # wake-ups are almost never this fast after a session ends.
+                if self._is_rapid_rewake(since_session_end):
+                    bus.emit("warning", {
+                        "module": "wakeword",
+                        "message": (
+                            f"Re-triggered {since_session_end:.1f}s after the previous "
+                            f"session ended (score={self._wake_score:.2f}) — possible TTS "
+                            "echo picked up as a wake word rather than a real request."
+                        ),
                     })
-                    # A session ending and a fresh wake firing seconds later is
-                    # exactly the shape of the mic picking up Dann's own TTS
-                    # output as a false "ok Dann" — genuinely happened live,
-                    # repeatedly, right after a goodbye response. Real user
-                    # wake-ups are almost never this fast after a session ends.
-                    if self._is_rapid_rewake(since_session_end):
-                        bus.emit("warning", {
-                            "module": "wakeword",
-                            "message": (
-                                f"Re-triggered {since_session_end:.1f}s after the previous "
-                                f"session ended (score={self._wake_score:.2f}) — possible TTS "
-                                "echo picked up as a wake word rather than a real request."
-                            ),
-                        })
-                    self._run_session()
+                self._run_session()
         except KeyboardInterrupt:
             print("\n[dann] Stopping...", flush=True)
         finally:
+            bus.unsubscribe(self._on_bus_event)
             self._detector.stop()
             if self._mcp:
                 self._mcp.stop()

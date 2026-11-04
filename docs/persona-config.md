@@ -71,3 +71,17 @@ CLI runs on the Claude Code subscription. There's no billed-SDK fallback.
 so a persona can enable research/reasoning without the coding tools.
 `claude_code_server` still exposes both names (delegating) for configs that
 route to them there.
+
+## Speaking typed replies
+
+```yaml
+ux:
+  speak_typed_replies: true   # default false
+```
+
+With the voice pipeline running, replies to typed chat (the dashboard's chat
+panel, or `POST /api/v1/chat/client`) are also read aloud. They're queued and
+spoken only while the orchestrator is idle, waiting for the wake word, so they
+never interrupt a voice session; replies typed during one are spoken after it
+ends. Wake detection is paused while it speaks (and a user's mute is kept), so
+the persona can't wake itself.
