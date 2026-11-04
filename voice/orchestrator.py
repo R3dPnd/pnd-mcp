@@ -120,7 +120,9 @@ class Orchestrator:
         mic is never opened."""
         self.config = load_config(config_path)
         self._listen = listen
-        self._name = persona_from_config(self.config).name
+        persona = persona_from_config(self.config)
+        self._name = persona.name
+        self._wake_phrase = persona.wake_phrase
         names = _spoken_names(self._name)
         self._goodbye_with_name = {f"{p} {n}" for p in _GOODBYE_PREFIXES for n in names}
         self._restart_pattern = _restart_re(names)
@@ -216,6 +218,10 @@ class Orchestrator:
         if len(n.split()) <= 4 and any(phrase in n for phrase in _GOODBYE_STANDALONE):
             return True
         return False
+
+    def _log(self, message: str) -> None:
+        """Console line prefixed with the persona, e.g. "[akane] Thinking..."."""
+        print(f"[{self._name.lower()}] {message}", flush=True)
 
     def _is_restart(self, text: str) -> bool:
         return bool(self._restart_pattern.search(text))
@@ -392,12 +398,12 @@ class Orchestrator:
             # without speaking: there's nobody to tell.
             self._consecutive_blank_turns += 1
             if self._should_give_up():
-                print("[dann] No speech — ending session.", flush=True)
+                self._log("No speech — ending session.")
                 self._end_reason = "silence"
                 return False
             return True
 
-        print("[dann] Transcribing...", flush=True)
+        self._log("Transcribing...")
         t0 = time.monotonic()
         text = self._transcribe(pcm)
         stt_ms = round((time.monotonic() - t0) * 1000)
@@ -411,14 +417,14 @@ class Orchestrator:
 
         if not text:
             self._consecutive_blank_turns += 1
-            print(f"[dann] Could not understand ({self._consecutive_blank_turns}/{_MAX_CONSECUTIVE_BLANK_TURNS}).", flush=True)
+            self._log(f"Could not understand ({self._consecutive_blank_turns}/{_MAX_CONSECUTIVE_BLANK_TURNS}).")
             bus.emit("warning", {
                 "module": "stt",
                 "message": f"Could not understand audio ({self._consecutive_blank_turns}/{_MAX_CONSECUTIVE_BLANK_TURNS} consecutive)",
             })
 
             if self._should_give_up():
-                print("[dann] Giving up after repeated blank turns — ending session.", flush=True)
+                self._log("Giving up after repeated blank turns — ending session.")
                 tts_ms = self._speak("I'm having trouble hearing you clearly — I'll stop listening for now.")
                 self._end_reason = "no_response"
                 bus.emit("metric", {
@@ -440,11 +446,11 @@ class Orchestrator:
 
         self._consecutive_blank_turns = 0
         text = self._fix_stt(text)
-        print(f"[dann] You said: {text}", flush=True)
+        self._log(f"You said: {text}")
 
         # ── Goodbye ───────────────────────────────────────────────────────────
         if self._is_goodbye(text):
-            print("[dann] Session ended.", flush=True)
+            self._log("Session ended.")
             tts_ms = self._speak("No problem, chat soon!")
             self._end_reason = "goodbye"
             bus.emit("metric", {
@@ -459,7 +465,7 @@ class Orchestrator:
         # Manual only — never triggered autonomously by the LLM/any tool, only
         # by this exact spoken phrase from a human.
         if self._is_restart(text):
-            print("[dann] Restarting.", flush=True)
+            self._log("Restarting.")
             self._speak("Okay, restarting now.")
             self.stop()  # releases the wake-word detector + stops the MCP manager
             restart_process()
@@ -469,7 +475,7 @@ class Orchestrator:
             self._set_mode(SessionMode.NORMAL, None)
             self._history.clear()
             self._code_history.clear()
-            print("[dann] Exiting code mode.", flush=True)
+            self._log("Exiting code mode.")
             tts_ms = self._speak("Exiting code mode, back to normal.")
             bus.emit("metric", {
                 "session_id": self._session_id,
@@ -488,14 +494,14 @@ class Orchestrator:
                 self._set_mode(SessionMode.CODE, project)
                 self._history.clear()
                 self._code_history.clear()
-                print(f"[dann] Entering code mode for: {project}", flush=True)
+                self._log(f"Entering code mode for: {project}")
                 tts_ms = self._speak(f"Entering code mode for {project}.")
                 if self._mcp:
                     try:
                         result = self._mcp.call_tool(
                             "open_claude_code", {"project_name": project}
                         )
-                        print(f"[dann] {result}", flush=True)
+                        self._log(f"{result}")
                         tts_ms += self._speak("Claude Code is open. Ask me anything about the project.")
                     except Exception as e:
                         bus.emit("error", {
@@ -503,7 +509,7 @@ class Orchestrator:
                             "message": f"Could not open Claude Code: {e}",
                             "traceback": traceback.format_exc(),
                         })
-                        print(f"[dann] Could not open Claude Code: {e}", flush=True)
+                        self._log(f"Could not open Claude Code: {e}")
                         tts_ms += self._speak("I couldn't open Claude Code, but I can still answer questions.")
                 bus.emit("metric", {
                     "session_id": self._session_id,
@@ -517,7 +523,7 @@ class Orchestrator:
             if not self._mcp:
                 self._speak("No MCP connection available.")
                 return True
-            print("[dann] Asking Claude Code...", flush=True)
+            self._log("Asking Claude Code...")
             self._speak("Asking Claude Code, one moment.")
             t0 = time.monotonic()
             try:
@@ -535,7 +541,7 @@ class Orchestrator:
                     "message": f"Claude Code error: {e}",
                     "traceback": traceback.format_exc(),
                 })
-                print(f"[dann] Claude Code error: {e}", flush=True)
+                self._log(f"Claude Code error: {e}")
                 tts_ms = self._speak("Claude Code returned an error.")
                 bus.emit("turn.code", {
                     "session_id": self._session_id,
@@ -570,7 +576,7 @@ class Orchestrator:
                 })
                 return True
 
-            print(f"[dann] {response}", flush=True)
+            self._log(f"{response}")
             self._code_history.append({"role": "user", "content": text})
             self._code_history.append({"role": "assistant", "content": response})
             tts_ms = self._speak(response)
@@ -582,7 +588,7 @@ class Orchestrator:
             return True
 
         # ── Normal mode: Ollama ───────────────────────────────────────────────
-        print("[dann] Thinking...", flush=True)
+        self._log("Thinking...")
         mcp_tools = self._mcp.tools if self._mcp else None
         model = self._ollama_cfg.get("model", "llama3.2")
         t0 = time.monotonic()
@@ -611,7 +617,7 @@ class Orchestrator:
             })
 
             if not response:
-                print("[dann] No response from Ollama.", flush=True)
+                self._log("No response from Ollama.")
                 bus.emit("metric", {
                     "session_id": self._session_id,
                     "mode": "normal", "stt_ms": stt_ms, "llm_ms": llm_ms,
@@ -620,7 +626,7 @@ class Orchestrator:
                 return True
 
             if self._is_json_artifact(response):
-                print(f"[dann] (suppressed JSON artifact): {response}", flush=True)
+                self._log(f"(suppressed JSON artifact): {response}")
                 bus.emit("error", {
                     "module": "orchestrator",
                     "message": "LLM returned a raw JSON artifact; suppressed from TTS.",
@@ -635,7 +641,7 @@ class Orchestrator:
                 return True
 
             if self._is_fake_tool_call(response):
-                print(f"[dann] (suppressed hallucinated tool call): {response}", flush=True)
+                self._log(f"(suppressed hallucinated tool call): {response}")
                 bus.emit("warning", {
                     "module": "orchestrator",
                     "message": "LLM described a tool call as text instead of calling it; suppressed from TTS.",
@@ -648,7 +654,7 @@ class Orchestrator:
                 })
                 return True
 
-            print(f"[dann] {response}", flush=True)
+            self._log(f"{response}")
             self._history.append({"role": "user", "content": text})
             self._history.append({"role": "assistant", "content": response})
             if len(self._history) > _MAX_HISTORY_TURNS * 2:
@@ -680,7 +686,7 @@ class Orchestrator:
             llm_ms = round((time.monotonic() - t0) * 1000)  # time-to-first-token
         except StopIteration:
             llm_ms = round((time.monotonic() - t0) * 1000)
-            print("[dann] No response from Ollama.", flush=True)
+            self._log("No response from Ollama.")
             bus.emit("turn.llm", {
                 "session_id": self._session_id, "text": "",
                 "latency_ms": llm_ms, "model": model,
@@ -699,7 +705,7 @@ class Orchestrator:
                 response_parts.append(chunk)
             response = " ".join(response_parts).strip()
             if self._is_json_artifact(response):
-                print(f"[dann] (suppressed JSON artifact): {response}", flush=True)
+                self._log(f"(suppressed JSON artifact): {response}")
                 bus.emit("error", {
                     "module": "orchestrator",
                     "message": "LLM returned a raw JSON artifact; suppressed from TTS.",
@@ -734,7 +740,7 @@ class Orchestrator:
             "latency_ms": llm_ms,
             "model": model,
         })
-        print(f"[dann] {response}", flush=True)
+        self._log(f"{response}")
         self._history.append({"role": "user", "content": text})
         self._history.append({"role": "assistant", "content": response})
         if len(self._history) > _MAX_HISTORY_TURNS * 2:
@@ -758,7 +764,7 @@ class Orchestrator:
         self._end_reason = "goodbye"
 
         mode_hint = " Say 'code mode for <project>' to switch to Claude Code mode."
-        print(f"[dann] Session started. Say 'thanks {self._name}' to stop.{mode_hint}", flush=True)
+        self._log(f"Session started. Say 'thanks {self._name}' to stop.{mode_hint}")
 
         bus.emit("session.start", {"session_id": self._session_id})
         self._speak("I'm listening.")
@@ -774,7 +780,7 @@ class Orchestrator:
                 "traceback": traceback.format_exc(),
             })
             bus.emit("session.end", {"session_id": self._session_id, "reason": "error"})
-            print(f"[dann] Error: {e}", flush=True)
+            self._log(f"Error: {e}")
             self._speak("Something went wrong. Starting over.")
         finally:
             self._history.clear()
@@ -789,12 +795,12 @@ class Orchestrator:
     def _run_speak_only(self) -> None:
         """Speak-only main loop: load just the TTS voice and read queued
         typed-chat replies aloud until stopped. No detector, no mic."""
-        print("[dann] Loading voice...", flush=True)
+        self._log("Loading voice...")
         warmup_tts(voice_model=self._tts_cfg.get("voice_model", "models/piper/en_US-lessac-medium"))
         self._speak("Ready.")
         self._running = True
         bus.emit("state.changed", {"mode": self._mode.value, "project": None, "session_id": None, "running": True})
-        print("[dann] Speak-only mode: reading typed replies aloud; not listening.", flush=True)
+        self._log("Speak-only mode: reading typed replies aloud; not listening.")
         bus.subscribe(self._on_bus_event)
         try:
             while self._running:
@@ -811,7 +817,7 @@ class Orchestrator:
         if mcp_servers:
             self._mcp = get_shared_manager()
             self._mcp.start(mcp_servers)  # idempotent — no-op if the FastAPI app already started it
-            print("[dann] MCP server ready.", flush=True)
+            self._log("MCP server ready.")
 
         if not self._listen:
             self._run_speak_only()
@@ -823,7 +829,6 @@ class Orchestrator:
         if wake_engine == "openwakeword":
             from voice.wakeword.openwakeword_detector import OpenWakeWordDetector
             wake_model = self._wake_cfg.get("model", "hey_jarvis")
-            wake_phrase = Path(wake_model).stem if str(wake_model).endswith(".onnx") else str(wake_model)
             self._detector = OpenWakeWordDetector(
                 model_name=wake_model,
                 on_wake=self._on_wake,
@@ -837,7 +842,6 @@ class Orchestrator:
             # Porcupine
             model_path = Path(self._wake_cfg.get("model_path", "models/ok_dann.ppn"))
             builtin_keyword = self._wake_cfg.get("builtin_keyword")
-            wake_phrase = builtin_keyword or "ok Dann"
 
             if not builtin_keyword and not model_path.exists():
                 raise FileNotFoundError(
@@ -865,7 +869,7 @@ class Orchestrator:
             )
 
         # Pre-load models
-        print("[dann] Loading models...", flush=True)
+        self._log("Loading models...")
         warmup_stt(
             model_size=self._stt_cfg.get("model_size", "base"),
             device=self._stt_cfg.get("device", "cpu"),
@@ -873,7 +877,7 @@ class Orchestrator:
         )
         warmup_tts(voice_model=self._tts_cfg.get("voice_model", "models/piper/en_US-lessac-medium"))
         self._speak("Ready.")
-        print("[dann] Models loaded.", flush=True)
+        self._log("Models loaded.")
 
         self._running = True
         bus.emit("state.changed", {
@@ -883,7 +887,7 @@ class Orchestrator:
             "running": True,
         })
 
-        print(f"[dann] Listening for '{wake_phrase}'... (Ctrl+C to stop)", flush=True)
+        self._log(f"Listening for '{self._wake_phrase}'... (Ctrl+C to stop)")
         self._detector.start()
         bus.subscribe(self._on_bus_event)
 
@@ -896,7 +900,7 @@ class Orchestrator:
                 now = time.monotonic()
                 since_tts = (now - self._last_tts_finished_at) if self._last_tts_finished_at is not None else None
                 since_session_end = (now - self._last_session_ended_at) if self._last_session_ended_at is not None else None
-                print(f"[dann] Wake word detected (score={self._wake_score:.2f}).", flush=True)
+                self._log(f"Wake word detected (score={self._wake_score:.2f}).")
                 bus.emit("wake.detected", {
                     "score": self._wake_score,
                     "since_tts_s": since_tts,
@@ -918,7 +922,8 @@ class Orchestrator:
                     })
                 self._run_session()
         except KeyboardInterrupt:
-            print("\n[dann] Stopping...", flush=True)
+            print(flush=True)
+            self._log("Stopping...")
         finally:
             bus.unsubscribe(self._on_bus_event)
             self._detector.stop()

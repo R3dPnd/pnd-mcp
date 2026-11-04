@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # Project Information
-    PROJECT_NAME: str = "Dann of Thursday MCP API"
+    PROJECT_NAME: str = "pnd-mcp API"  # the running persona names itself via shared.persona
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = True

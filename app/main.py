@@ -143,7 +143,7 @@ async def root():
 
 @app.get("/health", tags=["health"])
 async def health_check():
-    return {"status": "healthy", "service": settings.PROJECT_NAME}
+    return {"status": "healthy", "service": f"{get_persona().name} API"}
 
 
 # Serve built React app — must be last so explicit routes above always win

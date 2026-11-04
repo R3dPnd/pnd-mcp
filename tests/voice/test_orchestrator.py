@@ -356,3 +356,22 @@ class TestPersonaNamedPhrases:
     def test_dann_still_answers_to_dan(self, orch):
         assert orch._is_restart("restart Dann") is True
         assert orch._is_goodbye("thanks dan") is True
+
+
+class TestPersonaNamedOutput:
+    @pytest.fixture()
+    def akane(self, minimal_config):
+        cfg = {**minimal_config, "persona": {"name": "Akane", "wake_phrase": "ok Akane"}}
+        with patch("voice.orchestrator.load_config", return_value=cfg):
+            return Orchestrator()
+
+    def test_console_lines_are_prefixed_with_the_persona(self, akane, capsys):
+        akane._log("Thinking...")
+        assert capsys.readouterr().out == "[akane] Thinking...\n"
+
+    def test_dann_keeps_its_prefix(self, orch, capsys):
+        orch._log("Thinking...")
+        assert capsys.readouterr().out == "[dann] Thinking...\n"
+
+    def test_listening_line_uses_the_wake_phrase_not_the_model_file(self, akane):
+        assert akane._wake_phrase == "ok Akane"

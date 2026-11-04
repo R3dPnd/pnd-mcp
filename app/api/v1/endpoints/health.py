@@ -5,6 +5,7 @@ import httpx
 from fastapi import APIRouter
 from app.models.schemas import HealthResponse
 from app.core.config import settings
+from shared.persona import get_persona
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ async def health_check():
     """
     return HealthResponse(
         status="healthy",
-        service=settings.PROJECT_NAME,
+        service=f"{get_persona().name} API",
         version=settings.VERSION,
     )
 
