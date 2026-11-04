@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import TYPE_CHECKING, Any, Generator
+from typing import TYPE_CHECKING, Any, Callable, Generator
 
 import requests
 
@@ -122,6 +122,7 @@ def generate_response(
     history: list[dict[str, Any]] | None = None,
     keep_alive: str | int | None = None,
     session_context: dict[str, Any] | None = None,
+    on_tool: Callable[[str], None] | None = None,
 ) -> str:
     """Send prompt to Ollama and return generated text.
 
@@ -200,6 +201,8 @@ def generate_response(
             name = func.get("name", "")
             args = func.get("arguments", {})
             print(f"[mcp] Calling tool '{name}'...", flush=True)
+            if on_tool:
+                on_tool(name)  # e.g. so the chat UI can say "searching the web…"
             # call_tool_with_follow_ups also runs any tools config.yaml's
             # mcp.servers[].follow_up declares for *name* (e.g. an error
             # check right after a script edit) — deterministically, rather

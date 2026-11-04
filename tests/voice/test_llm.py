@@ -285,3 +285,18 @@ class TestAnnouncedButNotDone:
     def test_no_nudge_without_tools(self):
         result, sent, _ = self._run([_mock_response(self.PROMISE)], tools=())
         assert len(sent) == 1
+
+
+class TestToolActivityCallback:
+    def test_on_tool_is_told_each_tool_before_it_runs(self):
+        order = []
+        mcp = MagicMock()
+        mcp.call_tool_with_follow_ups.side_effect = lambda name, args, ctx: order.append(f"ran {name}") or [(name, "ok")]
+        responses = [
+            _mock_response("", tool_calls=[{"function": {"name": "web_search", "arguments": {}}}]),
+            _mock_response("Done."),
+        ]
+        with patch("voice.llm.ollama.requests.post", side_effect=responses):
+            from voice.llm.ollama import generate_response
+            generate_response("q", tools=[{"name": "web_search"}], mcp=mcp, on_tool=lambda n: order.append(f"start {n}"))
+        assert order == ["start web_search", "ran web_search"]

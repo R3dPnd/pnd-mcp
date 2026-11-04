@@ -3,6 +3,24 @@ import { api } from '../lib/api'
 import { useDannStore } from '../hooks/useDannState'
 import type { ChatMessage, FocusArea, WorkStream } from '../types'
 
+// What the typing indicator says while a reply is running a tool.
+const TOOL_ACTIVITY: Record<string, string> = {
+  web_search: 'searching the web…',
+  search_notes: 'checking your notes…',
+  get_note: 'reading your notes…',
+  list_areas: 'checking your notes…',
+  add_reminder: 'saving a reminder…',
+  list_reminders: 'checking your reminders…',
+  open_app: 'opening the app…',
+  get_volume: 'checking the volume…',
+  set_volume: 'setting the volume…',
+}
+
+function activityLabel(tool: string | undefined): string {
+  if (!tool) return 'thinking…'
+  return TOOL_ACTIVITY[tool] ?? `using ${tool.replace(/_/g, ' ')}…`
+}
+
 function relTime(ms: number): string {
   const diff = (Date.now() - ms) / 1000
   if (diff < 60) return `${Math.floor(diff)}s ago`
@@ -75,6 +93,7 @@ function NewStreamForm({
 
 export default function ChatPanel() {
   const personaName = useDannStore((s) => s.persona.name)
+  const chatActivity = useDannStore((s) => s.chatActivity)
   const [streams, setStreams] = useState<WorkStream[]>([])
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -250,7 +269,7 @@ export default function ChatPanel() {
             {sending && (
               <div className="flex justify-start">
                 <div className="voice-dann-bubble max-w-[80%] rounded-lg rounded-tl-sm px-3 py-2 text-sm opacity-60">
-                  thinking…
+                  {activityLabel(activeId ? chatActivity[activeId] : undefined)}
                 </div>
               </div>
             )}

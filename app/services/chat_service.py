@@ -217,6 +217,7 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
         history=history,
         keep_alive=ollama_cfg.get("keep_alive"),
         session_context={"focus_area": focus_area} if focus_area else None,
+        on_tool=lambda tool: bus.emit("chat.tool", {"session_id": stream_id, "tool": tool}),
     )
     latency_ms = round((time.monotonic() - t0) * 1000)
     response = response or EMPTY_REPLY_FALLBACK
@@ -267,6 +268,7 @@ def send_client_message(conversation_id: str, text: str, context: dict[str, Any]
         mcp=mcp,
         history=history,
         keep_alive=ollama_cfg.get("keep_alive"),
+        on_tool=lambda tool: bus.emit("chat.tool", {"session_id": conversation_id, "tool": tool}),
     )
     latency_ms = round((time.monotonic() - t0) * 1000)
     response = response or EMPTY_REPLY_FALLBACK

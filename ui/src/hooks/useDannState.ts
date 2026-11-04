@@ -73,6 +73,11 @@ interface DannStore {
   // Dann defaults until it loads
   persona: Persona
 
+  // Tool a typed-chat reply is running right now, by conversation id
+  // (chat.tool sets it, chat.turn clears it) — so the chat can say
+  // "searching the web…" instead of just "thinking…"
+  chatActivity: Record<string, string>
+
   // Actions
   applySnapshot: (snapshot: StateSnapshot) => void
   applyEvent: (type: string, payload: Record<string, unknown>) => void
@@ -117,6 +122,7 @@ export const useDannStore = create<DannStore>((set) => ({
   rawEvents: [],
   focusMode: false,
   persona: { name: 'Dann', wake_phrase: 'ok Dann' },
+  chatActivity: {},
 
   applySnapshot: (snapshot) =>
     set({
@@ -144,6 +150,17 @@ export const useDannStore = create<DannStore>((set) => ({
           sessionId: (payload.session_id as string | null) ?? null,
           running: payload.running !== undefined ? (payload.running as boolean) : s.running,
         }))
+        break
+
+      case 'chat.tool':
+        set((s) => ({ chatActivity: { ...s.chatActivity, [payload.session_id as string]: payload.tool as string } }))
+        break
+
+      case 'chat.turn':
+        set((s) => {
+          const { [payload.session_id as string]: _done, ...rest } = s.chatActivity
+          return { chatActivity: rest }
+        })
         break
 
       case 'voice.listening_changed':

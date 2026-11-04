@@ -107,3 +107,21 @@ def test_an_empty_reply_is_never_shown_as_a_blank_message(client, captured, monk
     body = client.post("/api/v1/chat/client", json={"conversation_id": "c1", "text": "side hustles?"}).json()
     assert body["response"] == chat_service.EMPTY_REPLY_FALLBACK
     assert body["response"].strip()
+
+
+def test_tool_activity_is_published_for_the_conversation(client, captured, monkeypatch):
+    from voice.event_bus import bus
+
+    def _generate(text, on_tool=None, **kw):
+        on_tool("web_search")
+        return "found it"
+
+    monkeypatch.setattr(chat_service, "generate_response", _generate)
+    events = []
+    listener = lambda t, p: events.append((t, p))
+    bus.subscribe(listener)
+    try:
+        client.post("/api/v1/chat/client", json={"conversation_id": "c9", "text": "jobs near me"})
+    finally:
+        bus.unsubscribe(listener)
+    assert ("chat.tool", {"session_id": "c9", "tool": "web_search"}) in events
