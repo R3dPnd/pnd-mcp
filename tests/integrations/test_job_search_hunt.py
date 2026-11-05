@@ -23,8 +23,10 @@ CFG = {
 }
 
 
-def posting(pid, title="Part-time SWE", company="Acme", salary=None, period=None, url=None):
-    return {"id": pid, "title": title, "company": company, "location": "Remote", "is_remote": True,
+def posting(pid, title=None, company="Acme", salary=None, period=None, url=None):
+    # Distinct titles by default: the same title at the same company is
+    # (deliberately) treated as the same job.
+    return {"id": pid, "title": title or f"Part-time SWE {pid}", "company": company, "location": "Remote", "is_remote": True,
             "description": "Build things.", "url": url or f"https://jobs.example/{pid}",
             "salary_min": salary, "salary_max": salary, "salary_period": period, "salary_currency": "USD"}
 
@@ -73,7 +75,7 @@ def test_hunt_writes_a_ranked_report_with_links_and_fit_lines(tmp_path):
     assert result.report_path == tmp_path / "reports" / f"{TODAY}.md"
     order = [report.index(f"jobs.example/{p}") for p in ("p2", "p3", "p1")]
     assert order == sorted(order)  # ranked by score
-    assert "## 1. Part-time SWE — Acme" in report
+    assert "## 1. Part-time SWE p2 — Acme" in report
     assert "Fit: fit app:p2" in report and "Suggestion: tip app:p2" in report
     assert "[gig]" in report and "dataannotation.tech" in report
     assert "delivered_at:" in report
@@ -216,3 +218,15 @@ def test_screen_with_no_matching_keys_falls_back_to_unscored_with_a_note(tmp_pat
     report = result.report_path.read_text()
     assert len(result.added) == 2
     assert "not screened" in report.lower()
+
+
+def test_same_job_under_a_new_posting_id_is_not_new(tmp_path):
+    # JSearch returned the same job with a different job_id on a later query,
+    # so the app stored it as a new posting (real run: #1 and #9 identical).
+    hunt(tmp_path, FakeApp([posting("p1", title="AI Trainer", company="DataAnnotation",
+                                     url="https://www.ziprecruiter.com/c/dataannotation/Job/x?jid=1")]), fake_claude())
+    again = hunt(tmp_path, FakeApp([
+        posting("p9", title="AI Trainer", company="DataAnnotation", url="https://www.ziprecruiter.com/c/dataannotation/Job/x?jid=1"),
+        posting("p10", title="ai trainer ", company="DataAnnotation", url="https://other.example/listing"),
+    ]), fake_claude())
+    assert again.added == []

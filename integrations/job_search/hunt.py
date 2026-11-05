@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from integrations.job_search.client import JobSearchApp, JobSearchUnavailable
-from integrations.job_search.leads import Lead, LeadStore, normalize_url
+from integrations.job_search.leads import Lead, LeadStore, fingerprints, normalize_url
 from integrations.job_search.report import delivered_at, render_report
 from integrations.job_search.rules import below_pay_floor, check_link
 from integrations.job_search.screening import gig_prompt, parse_gigs, parse_screen, screen_prompt
@@ -82,8 +82,17 @@ def run_hunt(cfg: dict[str, Any], *, app: JobSearchApp, store: LeadStore,
         if message not in notes:
             notes.append(message)
 
-    known = store.known_keys()
+    known = store.known_fingerprints()
     candidates: dict[str, dict] = {}
+    seen: set[str] = set(known)
+
+    def take(c: dict) -> None:
+        """Keep a candidate unless it's already reported or already taken
+        tonight under another key (same URL, or same title and company)."""
+        prints = fingerprints(c["key"], c["url"], c["title"], c["org"])
+        if not prints & seen:
+            seen.update(prints)
+            candidates[c["key"]] = c
 
     try:
         resume = app.active_resume_text()
@@ -94,8 +103,8 @@ def run_hunt(cfg: dict[str, Any], *, app: JobSearchApp, store: LeadStore,
         try:
             for p in app.search(query, loc, remote):
                 c = _posting_candidate(p)
-                if c["key"] not in known and c["url"]:
-                    candidates.setdefault(c["key"], c)
+                if c["url"]:
+                    take(c)
         except JobSearchUnavailable as e:
             note(str(e))
 
@@ -110,9 +119,7 @@ def run_hunt(cfg: dict[str, Any], *, app: JobSearchApp, store: LeadStore,
             note("Gig search answered without a list; no gig leads tonight.")
         if gig.ok:
             for g in gigs or []:
-                c = _gig_candidate(g)
-                if c["key"] not in known:
-                    candidates.setdefault(c["key"], c)
+                take(_gig_candidate(g))
         else:
             note(f"Gig search didn't run: {gig.error}")
 

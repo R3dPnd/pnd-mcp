@@ -5,8 +5,8 @@ import pytest
 from integrations.job_search.leads import Lead, LeadStore, normalize_url
 
 
-def lead(key, title="SWE", url=None):
-    return Lead(key=key, title=title, org="Acme", url=url or f"https://jobs.example/{key}", pay="", location="",
+def lead(key, title=None, url=None):
+    return Lead(key=key, title=title or f"SWE {key}", org="Acme", url=url or f"https://jobs.example/{key}", pay="", location="",
                 remote=True, kind="job", score=50, fit="", suggestion="", link="ok")
 
 

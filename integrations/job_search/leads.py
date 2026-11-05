@@ -43,6 +43,19 @@ def normalize_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower(), host, path, query, ""))
 
 
+def fingerprints(key: str, url: str, title: str, org: str) -> set[str]:
+    """Every identity a lead can be recognised by. JSearch can return the same
+    job under a new job_id (so a new app posting id), so the URL and the
+    title+company count too."""
+    prints = {key}
+    if url:
+        prints.add("url:" + normalize_url(url))
+    if title.strip() and org.strip():
+        norm = lambda text: " ".join(text.lower().split())  # noqa: E731
+        prints.add(f"job:{norm(title)}|{norm(org)}")
+    return prints
+
+
 class LeadStore:
     def __init__(self, path: Path):
         self.path = path
@@ -59,16 +72,20 @@ class LeadStore:
     def known_keys(self) -> set[str]:
         return {l.key for l in self._leads}
 
+    def known_fingerprints(self) -> set[str]:
+        return {f for l in self._leads for f in fingerprints(l.key, l.url, l.title, l.org)}
+
     def add(self, leads: list[Lead], report_date: str) -> list[Lead]:
-        known = self.known_keys()
+        known = self.known_fingerprints()
         number = max((l.number for l in self._leads if l.report_date == report_date), default=0)
         added = []
         for lead in leads:
-            if lead.key in known:
+            prints = fingerprints(lead.key, lead.url, lead.title, lead.org)
+            if prints & known:
                 continue
             number += 1
             lead.number, lead.report_date = number, report_date
-            known.add(lead.key)
+            known |= prints
             added.append(lead)
         self._leads += added
         self._save()
