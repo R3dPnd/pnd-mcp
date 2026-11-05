@@ -67,3 +67,24 @@ def test_url_variants_of_the_same_page_share_a_key(variant):
 
 def test_trailing_slash_dropped_on_paths():
     assert normalize_url("https://www.opentrain.ai/jobs/go-review/") == "https://opentrain.ai/jobs/go-review"
+
+
+def test_concurrent_stores_dont_lose_each_others_writes(tmp_path):
+    # The running hunt holds a store loaded minutes ago; "dismiss 1" meanwhile
+    # writes through the tool server's own store (review I-4).
+    path = tmp_path / "leads.json"
+    LeadStore(path).add([lead("app:1"), lead("app:2")], "2026-11-05")
+    hunt_store = LeadStore(path)
+    LeadStore(path).set_status("app:1", "dismissed")   # the tool server
+    hunt_store.add([lead("app:3")], "2026-11-05")       # the hunt, with stale data
+    hunt_store.set_status("app:2", "shown")
+    final = {l.key: l.status for l in LeadStore(path).for_date("2026-11-05")}
+    assert final == {"app:1": "dismissed", "app:2": "shown", "app:3": "new"}
+
+
+def test_add_sees_leads_written_by_another_store(tmp_path):
+    path = tmp_path / "leads.json"
+    a, b = LeadStore(path), LeadStore(path)
+    a.add([lead("app:1")], "2026-11-05")
+    added = b.add([lead("app:1"), lead("app:2")], "2026-11-05")
+    assert [(l.key, l.number) for l in added] == [("app:2", 2)]

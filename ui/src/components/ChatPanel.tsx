@@ -94,6 +94,7 @@ function NewStreamForm({
 export default function ChatPanel() {
   const personaName = useDannStore((s) => s.persona.name)
   const chatActivity = useDannStore((s) => s.chatActivity)
+  const chatPostedCount = useDannStore((s) => s.chatPostedCount)
   const [streams, setStreams] = useState<WorkStream[]>([])
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -113,6 +114,14 @@ export default function ChatPanel() {
     if (!activeId) { setActive(null); return }
     api.getStream(activeId).then(setActive).catch(() => setActive(null))
   }, [activeId])
+
+  // Something was posted server-side (the morning report, a finished hunt):
+  // pick up a new stream and new messages in the open one.
+  useEffect(() => {
+    if (chatPostedCount === 0) return
+    api.listStreams().then(setStreams).catch(() => {})
+    if (activeId) api.getStream(activeId).then(setActive).catch(() => {})
+  }, [chatPostedCount])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

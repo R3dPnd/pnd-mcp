@@ -6,8 +6,11 @@ Stored as JSON at <data_dir>/applications/leads.json.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -57,11 +60,26 @@ def fingerprints(key: str, url: str, title: str, org: str) -> set[str]:
 
 
 class LeadStore:
+    """Several processes write leads.json — the hunt (for minutes), the tool
+    server ("dismiss 3"), the API (delivery). Every write re-reads the file
+    under an exclusive lock, so nobody's change is lost to a stale copy."""
+
     def __init__(self, path: Path):
         self.path = path
         self._leads: list[Lead] = []
-        if path.is_file():
-            self._leads = [Lead(**d) for d in json.loads(path.read_text() or "[]")]
+        self._load()
+
+    def _load(self) -> None:
+        self._leads = [Lead(**d) for d in json.loads(self.path.read_text() or "[]")] if self.path.is_file() else []
+
+    @contextmanager
+    def _writing(self) -> Iterator[None]:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path.with_suffix(".lock"), "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            self._load()
+            yield
+            self._save()
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,19 +94,19 @@ class LeadStore:
         return {f for l in self._leads for f in fingerprints(l.key, l.url, l.title, l.org)}
 
     def add(self, leads: list[Lead], report_date: str) -> list[Lead]:
-        known = self.known_fingerprints()
-        number = max((l.number for l in self._leads if l.report_date == report_date), default=0)
-        added = []
-        for lead in leads:
-            prints = fingerprints(lead.key, lead.url, lead.title, lead.org)
-            if prints & known:
-                continue
-            number += 1
-            lead.number, lead.report_date = number, report_date
-            known |= prints
-            added.append(lead)
-        self._leads += added
-        self._save()
+        with self._writing():
+            known = self.known_fingerprints()
+            number = max((l.number for l in self._leads if l.report_date == report_date), default=0)
+            added = []
+            for lead in leads:
+                prints = fingerprints(lead.key, lead.url, lead.title, lead.org)
+                if prints & known:
+                    continue
+                number += 1
+                lead.number, lead.report_date = number, report_date
+                known |= prints
+                added.append(lead)
+            self._leads += added
         return added
 
     def urls(self, kind: str | None = None) -> list[str]:
@@ -105,7 +123,7 @@ class LeadStore:
         return next((l for l in self._leads if l.report_date == date and l.number == n), None)
 
     def set_status(self, key: str, status: str) -> None:
-        for lead in self._leads:
-            if lead.key == key:
-                lead.status = status
-        self._save()
+        with self._writing():
+            for lead in self._leads:
+                if lead.key == key:
+                    lead.status = status

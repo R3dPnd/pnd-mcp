@@ -25,7 +25,7 @@ from mcp.server.fastmcp import FastMCP
 from integrations.job_search.client import JobSearchApp, JobSearchUnavailable
 from integrations.job_search.delivery import chat_text
 from integrations.job_search.leads import LeadStore
-from integrations.job_search.lock import lock_path, try_lock
+from integrations.job_search.lock import announce_request_path, lock_path, try_lock
 from shared.persona import data_dir
 
 mcp = FastMCP("job_search")
@@ -118,8 +118,14 @@ def update_application(app: JobSearchApp, company: str, status: str) -> str:
         if status == "interviewing":
             order = [s["id"] for s in stages]
             current = order.index(application["current_stage_id"]) if application.get("current_stage_id") in order else -1
-            target = next((s for s in stages[current + 1:] if s["name"].lower() in _INTERVIEW_STAGES), None) \
-                or _stage_named(stages, "Phone Screen")
+            target = next((s for s in stages[current + 1:] if s["name"].lower() in _INTERVIEW_STAGES), None)
+            if target is None:
+                phone = _stage_named(stages, "Phone Screen")
+                if phone and current >= order.index(phone["id"]):
+                    # Final Round or later: there's no next interview stage,
+                    # and Phone Screen would move it backwards.
+                    return f"Your {name} application is already at {stages[current]['name']}{note}."
+                target = phone
         else:
             target = _stage_named(stages, status.capitalize())
         if target:
@@ -170,6 +176,7 @@ def start_hunt_now(base: Path) -> str:
     Akane restart) that announces its results when done."""
     probe = try_lock(lock_path(base))
     if probe is None:
+        announce_request_path(base).touch()  # the running hunt may be the silent nightly one
         return "A hunt is already running — I'll tell you when it's done."
     probe.close()
     log_dir = base / "logs"

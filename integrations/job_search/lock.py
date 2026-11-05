@@ -23,3 +23,10 @@ def try_lock(path: Path) -> IO | None:
         handle.close()
         return None
     return handle
+
+
+def announce_request_path(base: Path) -> Path:
+    """Dropped by "find me jobs" while a hunt is already running (maybe the
+    nightly one, which doesn't announce): the running hunt announces when it
+    finishes and removes it."""
+    return base / "applications" / "announce.request"

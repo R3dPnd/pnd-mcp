@@ -19,7 +19,7 @@ from integrations.job_search.client import JobSearchApp
 from integrations.job_search.delivery import chat_text, pending_path, spoken_summary
 from integrations.job_search.hunt import run_hunt
 from integrations.job_search.leads import LeadStore
-from integrations.job_search.lock import lock_path, try_lock
+from integrations.job_search.lock import announce_request_path, lock_path, try_lock
 from integrations.job_search.report import render_report
 from integrations.job_search.rules import http_status
 from shared.claude_cli import run_claude
@@ -42,7 +42,8 @@ def _announce(result, store: LeadStore, today: str) -> None:
         queued = json.loads(pending.read_text()) if pending.is_file() else []
         pending.parent.mkdir(parents=True, exist_ok=True)
         pending.write_text(json.dumps(queued + [{"text": text, "chat": chat}], indent=2))
-        return
+    # Shown either way: announced now, or queued to be announced at the next
+    # start — the morning report mustn't read them again.
     for lead in result.added:
         store.set_status(lead.key, "shown")
 
@@ -67,7 +68,9 @@ def main(argv: list[str]) -> int:
         print(f"{len(result.added)} new lead(s) → {result.report_path}", flush=True)
         for n in result.notes:
             print(f"note: {n}", flush=True)
-        if "--announce" in argv[1:]:
+        request = announce_request_path(base)
+        if "--announce" in argv[1:] or request.exists():
+            request.unlink(missing_ok=True)
             _announce(result, store, today)
         return 0
     finally:

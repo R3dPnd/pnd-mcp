@@ -287,3 +287,25 @@ def test_announce_falls_back_to_pending_when_api_down(entry, tmp_path, monkeypat
 def test_nightly_hunt_does_not_announce(entry, monkeypatch):
     monkeypatch.setattr(entry.requests, "post", lambda *a, **k: pytest.fail("nightly hunts don't announce"))
     assert entry.main(["hunt"]) == 0
+
+
+def test_pending_announcement_marks_leads_shown(entry, tmp_path, monkeypatch):
+    from integrations.job_search.leads import LeadStore
+
+    def down(*a, **k):
+        raise entry.requests.ConnectionError("refused")
+    monkeypatch.setattr(entry.requests, "post", down)
+    entry.main(["hunt", "--announce"])
+    assert LeadStore(tmp_path / "applications" / "leads.json").by_number(1).status == "shown"
+
+
+def test_a_requested_announcement_is_made_by_a_plain_hunt(entry, tmp_path, monkeypatch):
+    from integrations.job_search.lock import announce_request_path
+
+    announce_request_path(tmp_path).parent.mkdir(parents=True, exist_ok=True)
+    announce_request_path(tmp_path).touch()
+    posted = []
+    monkeypatch.setattr(entry.requests, "post", lambda url, json, timeout: posted.append(json) or
+                        type("R", (), {"status_code": 200})())
+    entry.main(["hunt"])  # the nightly hunt, no --announce
+    assert len(posted) == 1 and not announce_request_path(tmp_path).exists()

@@ -60,3 +60,16 @@ def test_announce_can_post_different_text_to_the_chat(chat):
     body = TestClient(app).post("/api/v1/announce", json={
         "text": "Your job hunt is done. 2 new leads.", "chat_title": "Morning report", "chat_text": "## 9. X — Y"}).json()
     assert chat.get_stream(body["stream_id"])["messages"][-1]["content"] == "## 9. X — Y"
+
+
+def test_posting_tells_the_dashboard_to_refresh(chat):
+    # The chat panel only fetched on mount/selection, so a posted report never
+    # appeared until a reload (review I-2).
+    events = []
+    listener = lambda t, p: events.append((t, p))
+    bus.subscribe(listener)
+    try:
+        stream_id = chat.post_assistant_message("Morning report", "hi")
+    finally:
+        bus.unsubscribe(listener)
+    assert ("chat.posted", {"stream_id": stream_id}) in events

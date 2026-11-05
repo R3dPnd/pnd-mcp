@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from integrations.job_search.leads import Lead, LeadStore
-from integrations.job_search.report import delivered_at, mark_delivered
+from integrations.job_search.report import delivered_at, mark_delivered, render_report
 
 _URL = re.compile(r"https?://\S+")
 
@@ -72,16 +72,23 @@ def due(data_dir: Path, today: str, now: str) -> Delivery:
     applications = data_dir / "applications"
 
     report = applications / "reports" / f"{today}.md"
-    if report.is_file() and not delivered_at(report):
+    if report.is_file():
+        # Go by lead status, not just delivered_at: leads an on-demand hunt
+        # already announced are "shown" and mustn't be read again as
+        # "overnight", and leads a later hunt appended after delivery are
+        # "new" and still need reading.
         store = LeadStore(applications / "leads.json")
         leads = store.for_date(today)
-        text = report.read_text()
-        out.spoken.append(spoken_summary(leads, report_notes(text)))
-        out.chat.append(chat_text(text))
-        mark_delivered(report, now)
-        for lead in leads:
-            if lead.status == "new":
-                store.set_status(lead.key, "shown")
+        new = [l for l in leads if l.status == "new"]
+        undelivered = not delivered_at(report)
+        if new or (undelivered and not leads):
+            notes = report_notes(report.read_text()) if undelivered else []
+            out.spoken.append(spoken_summary(new, notes))
+            out.chat.append(chat_text(render_report(today, new, notes)))
+        if undelivered:
+            mark_delivered(report, now)
+        for lead in new:
+            store.set_status(lead.key, "shown")
 
     pending = pending_path(data_dir)
     if pending.is_file():

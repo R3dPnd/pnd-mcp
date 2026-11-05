@@ -158,3 +158,26 @@ def test_start_hunt_reports_a_running_hunt(tmp_path, monkeypatch):
     with open(tmp_path / "applications" / "hunt.lock", "w") as held:
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
         assert srv.start_hunt_now(tmp_path) == "A hunt is already running — I'll tell you when it's done."
+
+
+def test_start_hunt_while_one_runs_asks_it_to_announce(tmp_path, monkeypatch):
+    # The running hunt may be the nightly one, which doesn't announce on its
+    # own — "I'll tell you when it's done" must still come true (review I-5).
+    import fcntl
+
+    from integrations.job_search.lock import announce_request_path
+
+    (tmp_path / "applications").mkdir()
+    monkeypatch.setattr(srv.subprocess, "Popen", lambda *a, **k: pytest.fail("must not spawn"))
+    with open(tmp_path / "applications" / "hunt.lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        srv.start_hunt_now(tmp_path)
+    assert announce_request_path(tmp_path).exists()
+
+
+@pytest.mark.parametrize("stage", ["s5", "s6"])  # Final Round, Offer
+def test_interviewing_never_moves_an_application_backwards(stage):
+    app = FakeApp(apps(stage=stage))
+    text = srv.update_application(app, "acme", "interviewing")
+    assert not any(c[0] == "advance" for c in app.calls)
+    assert "already" in text.lower()

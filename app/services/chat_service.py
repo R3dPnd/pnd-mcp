@@ -139,6 +139,7 @@ def post_assistant_message(title: str, text: str) -> str:
         stream["messages"] = stream["messages"][-_MAX_HISTORY:]
         stream["updated_at"] = now
         _persist()
+    bus.emit("chat.posted", {"stream_id": stream["id"]})  # the dashboard refreshes on this
     return stream["id"]
 
 

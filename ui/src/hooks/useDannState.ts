@@ -78,6 +78,10 @@ interface DannStore {
   // "searching the web…" instead of just "thinking…"
   chatActivity: Record<string, string>
 
+  // Bumped whenever something is posted into a chat stream server-side (the
+  // morning report, a finished job hunt) so the chat panel refetches.
+  chatPostedCount: number
+
   // Actions
   applySnapshot: (snapshot: StateSnapshot) => void
   applyEvent: (type: string, payload: Record<string, unknown>) => void
@@ -123,6 +127,7 @@ export const useDannStore = create<DannStore>((set) => ({
   focusMode: false,
   persona: { name: 'Dann', wake_phrase: 'ok Dann' },
   chatActivity: {},
+  chatPostedCount: 0,
 
   applySnapshot: (snapshot) =>
     set({
@@ -150,6 +155,10 @@ export const useDannStore = create<DannStore>((set) => ({
           sessionId: (payload.session_id as string | null) ?? null,
           running: payload.running !== undefined ? (payload.running as boolean) : s.running,
         }))
+        break
+
+      case 'chat.posted':
+        set((s) => ({ chatPostedCount: s.chatPostedCount + 1 }))
         break
 
       case 'chat.tool':
