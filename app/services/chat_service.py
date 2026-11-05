@@ -14,6 +14,7 @@ types voice turns emit (turn.start/turn.llm/metric) so the existing
 metrics/logs dashboard panels pick up text-chat activity for free.
 """
 import json
+import re
 import threading
 import time
 import uuid
@@ -267,6 +268,45 @@ def _build_system_prompt(cfg: dict[str, Any], focus_area: str = "", context: dic
     return system_prompt
 
 
+# Long messages (mostly Claude's answers) as the local model reads them: the
+# latest stays whole, since follow-ups are usually about it; older ones are cut
+# to a digest — the opening plus the lines facts live in (headings, table
+# rows, bold lines). Whole, a few of them would fill the model's context and
+# take a minute+ to read on modest hardware. The chat keeps the full text, and
+# think_deeply reads it in full from disk.
+_DIGEST_OVER = 1200
+_DIGEST_OPENING = 400
+_DIGEST_CAP = 2000
+_TABLE_RULE = re.compile(r"^\|?[\s:|-]+\|?$")
+_BOLD_ITEM = re.compile(r"^(?:[-*]|\d+\.)\s+\*\*")
+
+
+def _is_key_line(line: str) -> bool:
+    return (line.startswith(("#", "**")) or bool(_BOLD_ITEM.match(line))
+            or (line.startswith("|") and not _TABLE_RULE.match(line)))
+
+
+def _digest(content: str) -> str:
+    lines = [content.split("\n\n", 1)[0][:_DIGEST_OPENING]]
+    for line in content.splitlines()[1:]:
+        line = line.strip()
+        if _is_key_line(line) and line not in lines:
+            lines.append(line)
+    digest = "\n".join(lines)
+    if len(digest) > _DIGEST_CAP:
+        digest = digest[:_DIGEST_CAP].rsplit("\n", 1)[0]
+    return (f"{digest}\n\n[Key lines only — the full message ({len(content)} characters) is in the chat. "
+            f"Don't guess at details not shown here — for questions about them, call think_deeply; "
+            f"Claude reads it in full.]")
+
+
+def _model_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    long_ones = [i for i, m in enumerate(history) if len(m["content"]) > _DIGEST_OVER]
+    latest = long_ones[-1] if long_ones else -1
+    return [{**m, "content": _digest(m["content"])} if i in long_ones and i != latest else dict(m)
+            for i, m in enumerate(history)]
+
+
 def _background_status(stream: dict[str, Any]) -> str:
     """The truth about background work for this chat, so the model can't
     claim to be "still working on it" when nothing is running."""
@@ -293,14 +333,19 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
     cfg = load_config()
     ollama_cfg = cfg.get("ollama") or {}
     focus_area = stream["focus_area"]
-    system_prompt = _build_system_prompt(cfg, focus_area) + "\n\n" + _background_status(stream)
+    system_prompt = _build_system_prompt(cfg, focus_area)
 
     mcp = get_shared_manager()
-    history = [{"role": m["role"], "content": m["content"]} for m in stream["messages"]]
+    history = _model_history([{"role": m["role"], "content": m["content"]} for m in stream["messages"]])
+    # The status changes turn to turn, so it rides in this user turn, at the
+    # end of the prompt: everything before it stays identical and Ollama
+    # re-reads only what's new. (Not a system message — the model's template
+    # hoists those to the top.) The chat keeps only what the user typed.
+    model_text = f"[{_background_status(stream)}]\n\n{text}"
 
     t0 = time.monotonic()
     response = generate_response(
-        text,
+        model_text,
         base_url=ollama_cfg.get("base_url", "http://localhost:11434"),
         model=ollama_cfg.get("model", "llama3.2"),
         system_prompt=system_prompt,

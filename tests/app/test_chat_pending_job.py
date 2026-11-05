@@ -58,28 +58,43 @@ def test_a_stale_marker_expires(chat, monkeypatch):
     assert all(s.get("pending_job") is None for s in chat_service.list_streams())
 
 
-def _system_prompt_for_next_turn(stream_id, monkeypatch):
+def _model_view_of_next_turn(stream_id, monkeypatch):
     monkeypatch.setattr(chat_service, "get_shared_manager", lambda: type("M", (), {"tools": []})())
     seen = {}
 
-    def generate(text, system_prompt="", **kw):
-        seen["prompt"] = system_prompt
+    def generate(text, system_prompt="", history=(), **kw):
+        seen.update(prompt=system_prompt, history=list(history), text=text)
         return "ok"
 
     monkeypatch.setattr(chat_service, "generate_response", generate)
     chat_service.send_message(stream_id, "are you working on it?")
-    return seen["prompt"]
+    return seen
 
 
 def test_the_model_is_told_nothing_is_running(chat, monkeypatch):
     # Live: "Are you working on it?" → "I'm still working on it" with nothing running.
     stream = chat_service.create_stream("general", "q")
-    prompt = _system_prompt_for_next_turn(stream["id"], monkeypatch)
-    assert "Nothing is running in the background for this chat" in prompt
+    seen = _model_view_of_next_turn(stream["id"], monkeypatch)
+    assert "Nothing is running in the background for this chat" in seen["text"]
+    assert seen["text"].endswith("are you working on it?")
+    # Only what the user typed is kept in the chat.
+    assert chat_service.get_stream(stream["id"])["messages"][-2]["content"] == "are you working on it?"
 
 
 def test_the_model_is_told_what_is_running(chat, monkeypatch):
     stream = chat_service.create_stream("general", "q")
     _send_with_tool(chat, stream["id"], "think_deeply", monkeypatch)
-    prompt = _system_prompt_for_next_turn(stream["id"], monkeypatch)
-    assert "Claude is working on it" in prompt and "Nothing is running" not in prompt
+    status = _model_view_of_next_turn(stream["id"], monkeypatch)["text"]
+    assert "Claude is working on it" in status and "Nothing is running" not in status
+
+
+def test_the_system_prompt_stays_the_same_so_ollama_can_reuse_its_cache(chat, monkeypatch):
+    # Measured: a changed prompt start costs ~78 s of re-reading on the M1; an unchanged one 0.5 s.
+    stream = chat_service.create_stream("general", "q")
+    # Ollama's template hoists every system message to the top, so the status
+    # can't be one: it rides in the user turn, at the end of the prompt.
+    idle = _model_view_of_next_turn(stream["id"], monkeypatch)
+    _send_with_tool(chat, stream["id"], "think_deeply", monkeypatch)
+    busy = _model_view_of_next_turn(stream["id"], monkeypatch)
+    assert idle["prompt"] == busy["prompt"]
+    assert all(m["role"] != "system" for m in idle["history"] + busy["history"])
