@@ -267,6 +267,19 @@ def _build_system_prompt(cfg: dict[str, Any], focus_area: str = "", context: dic
     return system_prompt
 
 
+def _background_status(stream: dict[str, Any]) -> str:
+    """The truth about background work for this chat, so the model can't
+    claim to be "still working on it" when nothing is running."""
+    _expire_pending(stream)
+    job = stream.get("pending_job")
+    if job:
+        minutes = max(1, round((time.time() - job["started"]) / 60))
+        return (f"Background work for this chat: {job['label']} (started about {minutes} min ago). "
+                f"The result will be posted here automatically when it's ready.")
+    return ("Nothing is running in the background for this chat. Never say you're working on "
+            "something unless you call a tool for it in this reply.")
+
+
 def send_message(stream_id: str, text: str) -> dict[str, Any]:
     """Route a text message through the same Ollama + MCP brain as voice,
     scoped to this stream's focus area and conversation history. Blocking —
@@ -280,7 +293,7 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
     cfg = load_config()
     ollama_cfg = cfg.get("ollama") or {}
     focus_area = stream["focus_area"]
-    system_prompt = _build_system_prompt(cfg, focus_area)
+    system_prompt = _build_system_prompt(cfg, focus_area) + "\n\n" + _background_status(stream)
 
     mcp = get_shared_manager()
     history = [{"role": m["role"], "content": m["content"]} for m in stream["messages"]]

@@ -332,3 +332,15 @@ class TestLoopGuard:
         history = [{"role": "user", "content": "plan?"}, {"role": "assistant", "content": "Check the handbook."}]
         result, sent = self._run([_mock_response("Check the handbook."), _mock_response("Fall: TCSS 598.")], history)
         assert len(sent) == 2 and "said that" in sent[1]["messages"][-1]["content"].lower()
+
+    def test_claiming_to_be_working_is_nudged(self):
+        # Live: "I'm working on helping you explore potential research topics…
+        # I'll share the findings once I have them!" — no tool was called.
+        for claim in (
+            "I'm working on helping you explore potential research topics. I'll share the findings once I have them!",
+            "I'm still working on it, but I haven't received any results yet.",
+        ):
+            result, sent = self._run([_mock_response(claim), _mock_response("Topic ideas: 1. Federated learning.")])
+            assert len(sent) == 2 and result.startswith("Topic ideas"), claim
+            assert "think_deeply" in sent[1]["messages"][-1]["content"]
+

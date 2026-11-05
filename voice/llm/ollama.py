@@ -21,15 +21,24 @@ _ANNOUNCES_ACTION = re.compile(
     r"put together|come up with|write|build|generate|plan|map out|work out)\b",
     re.IGNORECASE,
 )
+# "I'm (still) working on it… I'll share the findings once I have them" — a
+# claim that work is underway, equally false when no tool was called.
+_CLAIMS_PROGRESS = re.compile(
+    r"\b(?:i'm|i am|i've been)\s+(?:still\s+)?working on\b"
+    r"|\bonce i (?:have|get|hear)\b"
+    r"|\bi'll (?:share|post|send|report)\b[^.!?]*\b(?:findings|results|answer|once|when)\b",
+    re.IGNORECASE,
+)
 _REPEAT_NUDGE = (
     "You just said that exactly, word for word, and it didn't help the user. Give them the actual "
     "content they asked for now, or call the tool that can produce it (for plans or anything needing "
     "real work: think_deeply)."
 )
 _ACT_NOW_NUDGE = (
-    "You said you would do that, but you didn't call a tool, so nothing happened. "
-    "If one of your tools can do it, call it now. Otherwise answer directly, "
-    "without saying you'll look something up."
+    "You said you would do that, or that you're working on it, but you didn't call a tool, "
+    "so nothing is happening. If one of your tools can do it, call it now (for research, "
+    "plans or anything needing real work: think_deeply). Otherwise answer directly, "
+    "without claiming to be working on something."
 )
 _SENTENCE_END = re.compile(r'(?<=[.!?])\s+')
 _MIN_CHUNK_LEN = 15
@@ -194,7 +203,7 @@ def generate_response(
         if not tool_calls or not mcp:
             content = (msg.get("content") or "").strip()
             repeated = bool(content) and content == last_reply
-            if not nudged and not called_a_tool and (repeated or (tools and mcp and _ANNOUNCES_ACTION.search(content))):
+            if not nudged and not called_a_tool and (repeated or (tools and mcp and (_ANNOUNCES_ACTION.search(content) or _CLAIMS_PROGRESS.search(content)))):
                 nudged = True
                 print("[llm] Reply repeated itself or promised without acting — nudging once.", flush=True)
                 messages.append(msg)

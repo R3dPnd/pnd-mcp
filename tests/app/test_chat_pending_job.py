@@ -56,3 +56,30 @@ def test_a_stale_marker_expires(chat, monkeypatch):
     chat_service.get_stream(stream["id"])["pending_job"]["started"] = time.time() - 21 * 60
     assert chat_service.get_stream(stream["id"]).get("pending_job") is None
     assert all(s.get("pending_job") is None for s in chat_service.list_streams())
+
+
+def _system_prompt_for_next_turn(stream_id, monkeypatch):
+    monkeypatch.setattr(chat_service, "get_shared_manager", lambda: type("M", (), {"tools": []})())
+    seen = {}
+
+    def generate(text, system_prompt="", **kw):
+        seen["prompt"] = system_prompt
+        return "ok"
+
+    monkeypatch.setattr(chat_service, "generate_response", generate)
+    chat_service.send_message(stream_id, "are you working on it?")
+    return seen["prompt"]
+
+
+def test_the_model_is_told_nothing_is_running(chat, monkeypatch):
+    # Live: "Are you working on it?" → "I'm still working on it" with nothing running.
+    stream = chat_service.create_stream("general", "q")
+    prompt = _system_prompt_for_next_turn(stream["id"], monkeypatch)
+    assert "Nothing is running in the background for this chat" in prompt
+
+
+def test_the_model_is_told_what_is_running(chat, monkeypatch):
+    stream = chat_service.create_stream("general", "q")
+    _send_with_tool(chat, stream["id"], "think_deeply", monkeypatch)
+    prompt = _system_prompt_for_next_turn(stream["id"], monkeypatch)
+    assert "Claude is working on it" in prompt and "Nothing is running" not in prompt
