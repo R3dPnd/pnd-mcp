@@ -14,6 +14,10 @@ Exposed tools:
   web_search  — current/up-to-date info via Claude's built-in web search
 """
 
+import subprocess
+import sys
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
 from shared.claude_cli import run_claude
@@ -74,6 +78,28 @@ def web_search(query: str) -> str:
             return "Web search timed out."
         return f"Web search error: {result.error}"
     return result.text or "No answer found."
+
+
+_RUNTIME_DIR = Path(__file__).resolve().parents[2]
+
+
+@mcp.tool()
+def think_deeply(question: str, stream_id: str = "") -> str:
+    """Hand a request that needs real work to Claude in the background — a plan,
+    a schedule, a comparison, a multi-step or researched answer, or whenever
+    the user says "ask Claude" / "think harder". Returns at once; the full
+    answer is posted into this chat and announced when it's ready.
+
+    Args:
+        question: What to work out, in full (include the details the user gave).
+        stream_id: Filled in automatically — leave empty.
+    """
+    subprocess.Popen(
+        [sys.executable, "-m", "integrations.deep_think", "--stream-id", stream_id, "--question", question],
+        cwd=str(_RUNTIME_DIR), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return "On it — I've asked Claude to work that out. I'll post the answer here and tell you when it's ready."
 
 
 if __name__ == "__main__":

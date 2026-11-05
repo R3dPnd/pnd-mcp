@@ -300,3 +300,35 @@ class TestToolActivityCallback:
             from voice.llm.ollama import generate_response
             generate_response("q", tools=[{"name": "web_search"}], mcp=mcp, on_tool=lambda n: order.append(f"start {n}"))
         assert order == ["start web_search", "ran web_search"]
+
+
+class TestLoopGuard:
+    """Live: Akane answered 'I'll help you create a sample graduation plan…'
+    three times without ever producing it."""
+
+    PROMISE = "I'll help you create a sample graduation plan. Let me know if you'd like to adjust any part of it!"
+
+    def _run(self, responses, history=()):
+        sent = []
+        replies = iter(responses)
+
+        def post(url, json=None, **kw):
+            sent.append(copy.deepcopy(json))
+            return next(replies)
+
+        mcp = MagicMock()
+        mcp.call_tool_with_follow_ups.return_value = [("think_deeply", "On it")]
+        with patch("voice.llm.ollama.requests.post", side_effect=post):
+            from voice.llm.ollama import generate_response
+            result = generate_response("show me the plan", tools=[{"name": "think_deeply"}], mcp=mcp,
+                                       history=list(history))
+        return result, sent
+
+    def test_create_and_draft_promises_are_nudged(self):
+        result, sent = self._run([_mock_response(self.PROMISE), _mock_response("Here it is: Fall — TCSS 598.")])
+        assert len(sent) == 2 and result.startswith("Here it is")
+
+    def test_repeating_the_last_reply_is_nudged(self):
+        history = [{"role": "user", "content": "plan?"}, {"role": "assistant", "content": "Check the handbook."}]
+        result, sent = self._run([_mock_response("Check the handbook."), _mock_response("Fall: TCSS 598.")], history)
+        assert len(sent) == 2 and "said that" in sent[1]["messages"][-1]["content"].lower()

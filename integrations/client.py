@@ -88,6 +88,8 @@ _META_TOOL_NAMES = {t["function"]["name"] for t in _META_TOOLS}
 # Tools that declare a `focus_area` parameter meant to be supplied by the
 # caller (see call_tool's session_context), not filled in by the LLM.
 _FOCUS_AREA_AWARE_TOOLS = {"open_claude_code", "ask_claude_code", "open_terminal", "save_focus_area_note"}
+# Tools that post their result back into the chat they were asked from.
+_STREAM_AWARE_TOOLS = {"think_deeply"}
 
 
 def _filter_tools(tools: list[Any], allowed: list[str] | None) -> list[Any]:
@@ -249,6 +251,8 @@ class MCPManager:
             return self._run(self._handle_meta_tool(tool_name, arguments))
         if tool_name in _FOCUS_AREA_AWARE_TOOLS and session_context and session_context.get("focus_area"):
             arguments = {**arguments, "focus_area": session_context["focus_area"]}
+        if tool_name in _STREAM_AWARE_TOOLS and session_context and session_context.get("stream_id"):
+            arguments = {**arguments, "stream_id": session_context["stream_id"]}
         return self._run(self._async_call_tool(tool_name, arguments))
 
     def call_tool_with_follow_ups(

@@ -120,6 +120,22 @@ def create_stream(focus_area: str, title: str = "") -> dict[str, Any]:
     return stream
 
 
+def post_to_stream(stream_id: str, text: str) -> bool:
+    """Append an assistant message to an existing stream; False if it's gone."""
+    _ensure_loaded()
+    now = time.time()
+    with _lock:
+        stream = _streams.get(stream_id)
+        if stream is None:
+            return False
+        stream["messages"].append({"role": "assistant", "content": text, "ts": now})
+        stream["messages"] = stream["messages"][-_MAX_HISTORY:]
+        stream["updated_at"] = now
+        _persist()
+    bus.emit("chat.posted", {"stream_id": stream_id})
+    return True
+
+
 def post_assistant_message(title: str, text: str) -> str:
     """Append an assistant message to the work stream titled `title`, creating
     it under the first enabled focus area if needed — how background work
@@ -239,7 +255,7 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
         mcp=mcp,
         history=history,
         keep_alive=ollama_cfg.get("keep_alive"),
-        session_context={"focus_area": focus_area} if focus_area else None,
+        session_context={"focus_area": focus_area, "stream_id": stream_id} if focus_area else {"stream_id": stream_id},
         on_tool=lambda tool: bus.emit("chat.tool", {"session_id": stream_id, "tool": tool}),
     )
     latency_ms = round((time.monotonic() - t0) * 1000)

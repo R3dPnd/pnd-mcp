@@ -63,3 +63,15 @@ def test_web_search_timeout_message(fake_claude):
 def test_claude_code_server_delegates(fake_claude):
     assert claude_code_server.ask_claude("q") == claude_server.ask_claude("q")
     assert claude_code_server.web_search("x") == claude_server.web_search("x")
+
+
+def test_think_deeply_starts_claude_in_the_background(monkeypatch):
+    from integrations.servers import claude_server
+
+    spawned = []
+    monkeypatch.setattr(claude_server.subprocess, "Popen", lambda argv, **kw: spawned.append((argv, kw)))
+    reply = claude_server.think_deeply("show me the plan", stream_id="s1")
+    ((argv, kw),) = spawned
+    assert argv[1:4] == ["-m", "integrations.deep_think", "--stream-id"] and "s1" in argv and "show me the plan" in argv
+    assert kw["start_new_session"] is True
+    assert reply.startswith("On it")

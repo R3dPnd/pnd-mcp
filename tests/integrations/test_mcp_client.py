@@ -151,3 +151,14 @@ def test_servers_get_the_config_path(tmp_data_dir, monkeypatch):
 
     monkeypatch.setenv("PND_CONFIG_PATH", "/persona/config.yaml")
     assert server_env({"name": "x"})["PND_CONFIG_PATH"] == "/persona/config.yaml"
+
+
+def test_think_deeply_gets_the_chat_stream_id():
+    # The answer is posted back into the chat it was asked from; the model
+    # can't be trusted to know that id, so the caller injects it.
+    mgr = MCPManager()
+    mgr._async_call_tool = lambda name, args: (name, args)
+    mgr._run = lambda x: x
+    assert mgr.call_tool("think_deeply", {"question": "q"}, {"focus_area": "general", "stream_id": "s1"}) == \
+        ("think_deeply", {"question": "q", "stream_id": "s1"})
+    assert mgr.call_tool("web_search", {"query": "x"}, {"stream_id": "s1"}) == ("web_search", {"query": "x"})

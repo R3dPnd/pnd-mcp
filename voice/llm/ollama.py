@@ -16,9 +16,15 @@ _MAX_TOOL_ROUNDS = 5
 # "Let me look that up" with no tool call: the turn ends and nothing is running,
 # though it sounds like something is. Seen live with qwen3:8b.
 _ANNOUNCES_ACTION = re.compile(
-    r"\b(?:let me|i'll|i will|i'm going to|i am going to)\s+(?:go\s+ahead\s+and\s+)?"
-    r"(?:look|check|search|find|pull|fetch|grab|get|set|add|open|run)\b",
+    r"\b(?:let me|i'll|i will|i'm going to|i am going to)\s+(?:go\s+ahead\s+and\s+)?(?:help you\s+)?"
+    r"(?:look|check|search|find|pull|fetch|grab|get|set|add|open|run|create|draft|make|"
+    r"put together|come up with|write|build|generate|plan|map out|work out)\b",
     re.IGNORECASE,
+)
+_REPEAT_NUDGE = (
+    "You just said that exactly, word for word, and it didn't help the user. Give them the actual "
+    "content they asked for now, or call the tool that can produce it (for plans or anything needing "
+    "real work: think_deeply)."
 )
 _ACT_NOW_NUDGE = (
     "You said you would do that, but you didn't call a tool, so nothing happened. "
@@ -148,6 +154,7 @@ def generate_response(
 
     called_a_tool = False
     nudged = False
+    last_reply = next((m.get("content", "").strip() for m in reversed(history or []) if m.get("role") == "assistant"), "")
     for _ in range(_MAX_TOOL_ROUNDS):
         payload: dict[str, Any] = {
             "model": model,
@@ -186,11 +193,12 @@ def generate_response(
         tool_calls = msg.get("tool_calls")
         if not tool_calls or not mcp:
             content = (msg.get("content") or "").strip()
-            if tools and mcp and not called_a_tool and not nudged and _ANNOUNCES_ACTION.search(content):
+            repeated = bool(content) and content == last_reply
+            if not nudged and not called_a_tool and (repeated or (tools and mcp and _ANNOUNCES_ACTION.search(content))):
                 nudged = True
-                print("[llm] Reply promised an action without calling a tool — nudging once.", flush=True)
+                print("[llm] Reply repeated itself or promised without acting — nudging once.", flush=True)
                 messages.append(msg)
-                messages.append({"role": "system", "content": _ACT_NOW_NUDGE})
+                messages.append({"role": "system", "content": _REPEAT_NUDGE if repeated else _ACT_NOW_NUDGE})
                 continue
             return content
 
