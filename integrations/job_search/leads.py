@@ -70,6 +70,9 @@ class LeadStore:
         self._save()
         return added
 
+    def for_date(self, report_date: str) -> list[Lead]:
+        return sorted((l for l in self._leads if l.report_date == report_date), key=lambda l: l.number)
+
     def latest_report_date(self) -> str | None:
         return max((l.report_date for l in self._leads), default=None)
 
