@@ -112,6 +112,24 @@ _RAPID_REWAKE_THRESHOLD_S = 3.0
 _MAX_CONSECUTIVE_BLANK_TURNS = 4
 
 
+_MD_LINK = re.compile(r"\[([^\]]+)\]\((?:https?://)[^)]*\)")
+_URL = re.compile(r"https?://\S+")
+_MD_MARKUP = re.compile(r"[*_`#]+")
+_EMOJI = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\uFE0F]")
+
+
+def speech_text(text: str) -> str:
+    """Text as it should sound: Markdown links read as their words, bare URLs
+    and Markdown markup dropped, no emoji. Links belong on screen, not read
+    out character by character."""
+    text = _MD_LINK.sub(r"\1", text)
+    text = _URL.sub("", text)
+    text = _MD_MARKUP.sub("", text)
+    text = _EMOJI.sub("", text)
+    text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 class Orchestrator:
     """State machine: idle -> session (normal or code mode) -> idle."""
 
@@ -180,6 +198,7 @@ class Orchestrator:
             text = (payload.get("response") or "").strip()
         else:
             return
+        text = speech_text(text)
         if text:
             self._speech_queue.put(text)
 

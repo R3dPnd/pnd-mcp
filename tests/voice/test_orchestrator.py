@@ -415,3 +415,32 @@ def test_announcements_made_when_ready_are_heard(minimal_config):
     finally:
         bus.unsubscribe(on_ready)
     assert "Morning." in spoken
+
+
+class TestSpeechText:
+    """What's spoken from typed replies and announcements: links stay on
+    screen, not read aloud (live: 'The link is [here](https://annotation…)')."""
+
+    @pytest.fixture()
+    def o(self, minimal_config):
+        with patch("voice.orchestrator.load_config", return_value={**minimal_config, "ux": {"speak_typed_replies": True}}):
+            o = Orchestrator()
+        o.spoken = []
+        o._speak = lambda text: o.spoken.append(text) or 0.0
+        return o
+
+    @pytest.mark.parametrize("reply, spoken", [
+        ("The link is [here](https://annotation.academy/jobs/x).", "The link is here."),
+        ("See https://jobs.example/a?b=1 for details.", "See for details."),
+        ("Done! 😊", "Done!"),
+        ("**Number 2** is `remote`.", "Number 2 is remote."),
+    ])
+    def test_typed_replies_are_spoken_without_links_or_markup(self, o, reply, spoken):
+        o._on_bus_event("chat.turn", {"response": reply})
+        o._speak_queued()
+        assert o.spoken == [spoken]
+
+    def test_nothing_left_to_say_is_not_spoken(self, o):
+        o._on_bus_event("chat.turn", {"response": "https://only.example/link"})
+        o._speak_queued()
+        assert o.spoken == []
