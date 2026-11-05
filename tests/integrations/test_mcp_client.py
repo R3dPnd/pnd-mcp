@@ -142,3 +142,12 @@ def test_server_env_keeps_existing_env_and_explicit_value_wins(tmp_data_dir):
     from integrations.client import server_env
     env = server_env({"env": {"PYTHONPATH": "/p", "PND_DATA_DIR": "/explicit"}})
     assert env == {"PYTHONPATH": "/p", "PND_DATA_DIR": "/explicit"}
+
+
+def test_servers_get_the_config_path(tmp_data_dir, monkeypatch):
+    # Tool servers that need persona config (job_search_server) can't find
+    # config.yaml otherwise — the stdio client drops the parent env.
+    from integrations.client import server_env
+
+    monkeypatch.setenv("PND_CONFIG_PATH", "/persona/config.yaml")
+    assert server_env({"name": "x"})["PND_CONFIG_PATH"] == "/persona/config.yaml"

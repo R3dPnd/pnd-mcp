@@ -19,9 +19,11 @@ class JobSearchApp:
         self.base_url = base_url.rstrip("/")
         self.http = http or requests.Session()
 
-    def _call(self, method: str, path: str, params: dict[str, str] | None = None, timeout: float = 60) -> Any:
+    def _call(self, method: str, path: str, params: dict[str, str] | None = None, timeout: float = 60,
+              body: dict[str, Any] | None = None) -> Any:
         try:
-            resp = self.http.request(method, f"{self.base_url}{path}", params=params, timeout=timeout)
+            extra = {"json": body} if body is not None else {}
+            resp = self.http.request(method, f"{self.base_url}{path}", params=params, timeout=timeout, **extra)
         except requests.RequestException as e:
             # Fixed text, not str(e): that embeds the request URL, so every
             # search would add a different note to the report.
@@ -64,3 +66,20 @@ class JobSearchApp:
     def track(self, posting_id: str, applied: bool) -> dict:
         params = None if applied else {"applied": "false"}
         return self._call("POST", f"/job-postings/{posting_id}/track", params=params)
+
+    def create_application(self, company: str, role: str, job_url: str, date_applied: str | None,
+                           source: str) -> dict:
+        return self._call("POST", "/applications", body={
+            "company": company, "role": role, "job_url": job_url, "date_applied": date_applied, "source": source})
+
+    def list_applications(self) -> list[dict]:
+        return self._call("GET", "/applications").get("applications") or []
+
+    def stages(self, app_id: str) -> list[dict]:
+        return self._call("GET", f"/applications/{app_id}/stages").get("stages") or []
+
+    def advance(self, app_id: str, stage_id: str) -> dict:
+        return self._call("POST", f"/applications/{app_id}/advance", body={"stage_id": stage_id})
+
+    def update_status(self, app_id: str, status: str) -> dict:
+        return self._call("PATCH", f"/applications/{app_id}", body={"status": status})

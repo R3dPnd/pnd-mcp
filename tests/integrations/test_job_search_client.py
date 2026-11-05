@@ -106,3 +106,32 @@ def test_unreachable_message_is_the_same_for_every_request():
             app.search(q)
         messages.add(str(e.value))
     assert messages == {f"job search app not reachable at {BASE}"}
+
+
+class BodySession(FakeSession):
+    def request(self, method, url, params=None, timeout=None, json=None, **kw):
+        self.calls.append((method, url[len(BASE):], json))
+        return self.routes.get((method, url[len(BASE):]), FakeResponse(404, {"error": "not found"}))
+
+
+def test_create_application_posts_the_fields():
+    s = BodySession({("POST", "/applications"): FakeResponse(201, {"id": "a1"})})
+    JobSearchApp(BASE, http=s).create_application("Mercor", "Code reviewer", "https://m.example", "2026-11-06", "akane:gig")
+    assert s.calls == [("POST", "/applications", {"company": "Mercor", "role": "Code reviewer",
+                        "job_url": "https://m.example", "date_applied": "2026-11-06", "source": "akane:gig"})]
+
+
+def test_stages_advance_and_status():
+    s = BodySession({
+        ("GET", "/applications"): FakeResponse(200, {"applications": [{"id": "a1"}], "count": 1}),
+        ("GET", "/applications/a1/stages"): FakeResponse(200, {"stages": [{"id": "s1", "name": "Applied"}], "count": 1}),
+        ("POST", "/applications/a1/advance"): FakeResponse(200, {"id": "a1"}),
+        ("PATCH", "/applications/a1"): FakeResponse(200, {"id": "a1", "status": "archived"}),
+    })
+    app = JobSearchApp(BASE, http=s)
+    assert app.list_applications() == [{"id": "a1"}]
+    assert app.stages("a1") == [{"id": "s1", "name": "Applied"}]
+    app.advance("a1", "s1")
+    app.update_status("a1", "archived")
+    assert ("POST", "/applications/a1/advance", {"stage_id": "s1"}) in s.calls
+    assert ("PATCH", "/applications/a1", {"status": "archived"}) in s.calls

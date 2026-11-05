@@ -24,6 +24,7 @@ simplest behavior (expose everything, chain nothing).
 """
 
 import asyncio
+import os
 import logging
 import threading
 from typing import Any
@@ -105,7 +106,11 @@ def server_env(cfg: dict[str, Any]) -> dict[str, str]:
     small allowlist of the parent's env (PATH, HOME, ...), so a server can't
     find config.yaml to learn the persona data dir on its own — inject it.
     An explicit PND_DATA_DIR in the server's own `env:` block wins."""
-    return {"PND_DATA_DIR": str(data_dir()), **(cfg.get("env") or {})}
+    env = {"PND_DATA_DIR": str(data_dir())}
+    config_path = os.environ.get("PND_CONFIG_PATH") or os.environ.get("DANN_CONFIG_PATH")
+    if config_path:  # servers that read persona config (job_search_server) need it too
+        env["PND_CONFIG_PATH"] = config_path
+    return {**env, **(cfg.get("env") or {})}
 
 
 class MCPManager:
