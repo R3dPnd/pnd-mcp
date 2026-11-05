@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from unittest.mock import patch
 
+from voice.event_bus import bus
 from voice.orchestrator import Orchestrator, SessionMode
 
 
@@ -208,7 +209,7 @@ def speaking_orch(minimal_config):
 
     o._detector = FakeDetector()
     o.spoken = []
-    o._speak = lambda text: o.spoken.append((text, list(o._detector.calls))) or 0.0
+    o._speak = lambda text, gen=None: o.spoken.append((text, list(o._detector.calls))) or 0.0
     return o
 
 
@@ -270,7 +271,7 @@ class TestSilentTurns:
         from voice.orchestrator import _MAX_CONSECUTIVE_BLANK_TURNS
 
         orch._record = lambda: pcm
-        orch._speak = lambda text: 0.0
+        orch._speak = lambda text, gen=None: 0.0
         results = [orch._run_turn() for _ in range(_MAX_CONSECUTIVE_BLANK_TURNS)]
         assert results[:-1] == [True] * (_MAX_CONSECUTIVE_BLANK_TURNS - 1)
         assert results[-1] is False
@@ -280,7 +281,7 @@ class TestSilentTurns:
 
         spoken = []
         orch._record = lambda: b""
-        orch._speak = lambda text: spoken.append(text) or 0.0
+        orch._speak = lambda text, gen=None: spoken.append(text) or 0.0
         for _ in range(_MAX_CONSECUTIVE_BLANK_TURNS):
             orch._run_turn()
         assert spoken == []
@@ -299,7 +300,7 @@ class TestSpeakOnlyMode:
         with patch("voice.orchestrator.load_config", return_value=cfg):
             o = Orchestrator(listen=False)
         o.spoken = []
-        o._speak = lambda text: o.spoken.append(text) or 0.0
+        o._speak = lambda text, gen=None: o.spoken.append(text) or 0.0
         return o
 
     def test_run_speaks_typed_replies_without_a_detector_or_stt(self, speak_only):
@@ -381,7 +382,7 @@ def test_announce_is_spoken_even_with_typed_replies_off(minimal_config):
     with patch("voice.orchestrator.load_config", return_value={**minimal_config, "ux": {}}):
         o = Orchestrator()
     spoken = []
-    o._speak = lambda text: spoken.append(text) or 0.0
+    o._speak = lambda text, gen=None: spoken.append(text) or 0.0
     o._on_bus_event("announce", {"text": "Morning."})
     o._on_bus_event("chat.turn", {"response": "typed reply"})  # still off
     o._speak_queued()
@@ -397,7 +398,7 @@ def test_announcements_made_when_ready_are_heard(minimal_config):
     with patch("voice.orchestrator.load_config", return_value=cfg):
         o = Orchestrator(listen=False)
     spoken = []
-    o._speak = lambda text: spoken.append(text) or 0.0
+    o._speak = lambda text, gen=None: spoken.append(text) or 0.0
 
     def on_ready(t, p):
         if t == "state.changed" and p.get("running"):
@@ -426,7 +427,7 @@ class TestSpeechText:
         with patch("voice.orchestrator.load_config", return_value={**minimal_config, "ux": {"speak_typed_replies": True}}):
             o = Orchestrator()
         o.spoken = []
-        o._speak = lambda text: o.spoken.append(text) or 0.0
+        o._speak = lambda text, gen=None: o.spoken.append(text) or 0.0
         return o
 
     @pytest.mark.parametrize("reply, spoken", [
@@ -444,3 +445,75 @@ class TestSpeechText:
         o._on_bus_event("chat.turn", {"response": "https://only.example/link"})
         o._speak_queued()
         assert o.spoken == []
+
+
+# ── Reading a message aloud on request (the chat's speaker button) ────────────
+
+class TestReadAloud:
+    def test_a_read_request_is_spoken_even_with_typed_replies_off(self, orch):
+        orch._detector = None
+        orch.spoken = []
+        orch._speak = lambda text, gen=None: orch.spoken.append(text) or 0.0
+        orch._on_bus_event("speak", {"text": "Hello there."})
+        orch._speak_queued()
+        assert orch.spoken == ["Hello there."]
+
+    def test_long_messages_are_read_paragraph_by_paragraph(self, speaking_orch):
+        speaking_orch._on_bus_event("speak", {"text": "# Plan\n\nFirst **step**.\n\n| Quarter | Course |\n|---|---|\n| Winter | TCSS 558 |"})
+        speaking_orch._speak_queued()
+        assert [t for t, _ in speaking_orch.spoken] == ["Plan", "First step.", "Quarter, Course", "Winter, TCSS 558"]
+
+    def test_stop_drops_everything_still_queued(self, speaking_orch):
+        speaking_orch._on_bus_event("speak", {"text": "One.\n\nTwo."})
+        speaking_orch.stop_speaking()
+        speaking_orch._speak_queued()
+        assert speaking_orch.spoken == []
+
+    def test_stop_during_a_paragraph_skips_the_rest(self, speaking_orch):
+        def speak(text, gen=None):
+            speaking_orch.spoken.append((text, []))
+            speaking_orch.stop_speaking()  # the user clicks stop while this plays
+            return 0.0
+        speaking_orch._speak = speak
+        with patch("voice.orchestrator.stop_playback"):
+            speaking_orch._on_bus_event("speak", {"text": "One.\n\nTwo.\n\nThree."})
+            speaking_orch._speak_queued()
+        assert [t for t, _ in speaking_orch.spoken] == ["One."]
+
+    def test_a_stopped_paragraph_is_never_played(self, speaking_orch, minimal_config):
+        # Stop lands while a paragraph is still being synthesized.
+        del speaking_orch._speak  # the real _speak
+        with patch("voice.orchestrator.synthesize_speech", side_effect=lambda *a, **k: speaking_orch.stop_speaking() or "x.wav"), \
+             patch("voice.orchestrator.stop_playback"), patch("voice.orchestrator.play_wav") as play:
+            speaking_orch._on_bus_event("speak", {"text": "One."})
+            speaking_orch._speak_queued()
+        play.assert_not_called()
+
+    def test_speech_done_is_announced_when_the_queue_empties(self, speaking_orch):
+        events = []
+        listener = lambda t, p: events.append(t)
+        bus.subscribe(listener)
+        try:
+            speaking_orch._on_bus_event("speak", {"text": "One."})
+            speaking_orch._speak_queued()
+        finally:
+            bus.unsubscribe(listener)
+        assert "speech.done" in events
+
+    def test_a_new_read_request_replaces_the_one_playing(self, speaking_orch):
+        def speak(text, gen=None):
+            speaking_orch.spoken.append((text, []))
+            if text == "Old one.":  # the user clicks another message meanwhile
+                speaking_orch._on_bus_event("speak", {"text": "New one."})
+            return 0.0
+        speaking_orch._speak = speak
+        with patch("voice.orchestrator.stop_playback") as stop:
+            speaking_orch._on_bus_event("speak", {"text": "Old one.\n\nOld two."})
+            speaking_orch._speak_queued()
+        assert [t for t, _ in speaking_orch.spoken] == ["Old one.", "New one."]
+        assert stop.called
+
+    def test_stop_never_cuts_off_a_voice_session_reply(self, speaking_orch):
+        with patch("voice.orchestrator.stop_playback") as stop:
+            speaking_orch.stop_speaking()  # nothing queued is playing
+        stop.assert_not_called()

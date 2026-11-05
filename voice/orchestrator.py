@@ -18,7 +18,7 @@ from shared.agents_config import build_routing_prompt
 from shared.focus_areas_config import build_focus_areas_prompt
 from shared.user_context import build_user_prompt
 from shared.persona import persona_from_config
-from voice.audio import play_wav, record_until_silence
+from voice.audio import play_wav, record_until_silence, stop_playback
 from voice.audio.capture import save_wav
 from voice.config import load_config
 from voice.event_bus import bus
@@ -130,6 +130,25 @@ def speech_text(text: str) -> str:
     return re.sub(r"\s{2,}", " ", text).strip()
 
 
+_TABLE_RULE = re.compile(r"^\s*\|?[\s:|-]+\|?\s*$")
+
+
+def read_aloud_chunks(text: str) -> list[str]:
+    """A message as speakable paragraphs, for reading it aloud on request:
+    one chunk per paragraph or table row (cells joined with commas, rule
+    lines dropped), so playback starts quickly and stops between chunks."""
+    chunks = []
+    for block in re.split(r"\n\s*\n", text):
+        lines = block.splitlines()
+        if any(line.strip().startswith("|") for line in lines):
+            parts = [", ".join(c.strip() for c in line.strip().strip("|").split("|"))
+                     for line in lines if line.strip() and not _TABLE_RULE.match(line)]
+        else:
+            parts = [block]
+        chunks += [t for t in (speech_text(part) for part in parts) if t]
+    return chunks
+
+
 class Orchestrator:
     """State machine: idle -> session (normal or code mode) -> idle."""
 
@@ -183,7 +202,11 @@ class Orchestrator:
         # Typed-chat replies waiting to be spoken (ux.speak_typed_replies).
         # Filled from the API thread via the event bus; drained by the main
         # loop only while idle, so they never interrupt a voice session.
-        self._speech_queue: queue.Queue[str] = queue.Queue()
+        # Each item carries the generation it was queued in; stop_speaking()
+        # bumps the generation so anything older is skipped, not spoken.
+        self._speech_queue: queue.Queue[tuple[int, str]] = queue.Queue()
+        self._speech_gen = 0
+        self._speaking_queued = False
 
     # ── Callbacks ─────────────────────────────────────────────────────────────
 
@@ -191,7 +214,17 @@ class Orchestrator:
         """Queue text to be read aloud when idle: every `announce` (background
         work telling the user something), and typed-chat replies when the
         persona's `ux.speak_typed_replies` is on. Runs on the emitting (API)
-        thread, so it only enqueues."""
+        thread, so it only enqueues. A `speak` event (the user asked to hear a
+        message) is queued paragraph by paragraph."""
+        if event_type == "speak":
+            # Replaces whatever is being read: the new paragraphs are queued
+            # before playback is cut, so the speaking loop moves straight on
+            # to them instead of finishing (and reporting speech.done).
+            self._cancel_queued_speech()
+            for chunk in read_aloud_chunks(payload.get("text") or ""):
+                self._speech_queue.put((self._speech_gen, chunk))
+            self._cut_queued_playback()
+            return
         if event_type == "announce":
             text = (payload.get("text") or "").strip()
         elif event_type == "chat.turn" and self._ux_cfg.get("speak_typed_replies", False):
@@ -200,7 +233,26 @@ class Orchestrator:
             return
         text = speech_text(text)
         if text:
-            self._speech_queue.put(text)
+            self._speech_queue.put((self._speech_gen, text))
+
+    def stop_speaking(self) -> None:
+        """Stop reading aloud: drop everything queued and cut off the
+        paragraph that's playing. Safe to call from the API thread."""
+        self._cancel_queued_speech()
+        self._cut_queued_playback()
+
+    def _cancel_queued_speech(self) -> None:
+        self._speech_gen += 1
+        while True:
+            try:
+                self._speech_queue.get_nowait()
+            except queue.Empty:
+                break
+
+    def _cut_queued_playback(self) -> None:
+        # Only queued speech: a voice session's own reply is never cut off.
+        if self._speaking_queued:
+            stop_playback()
 
     def _speak_queued(self) -> None:
         """Speak every queued typed-chat reply, in order. Wake detection is
@@ -210,14 +262,18 @@ class Orchestrator:
             return
         if self._detector:
             self._detector.pause()
+        self._speaking_queued = True
         try:
             while True:
                 try:
-                    text = self._speech_queue.get_nowait()
+                    gen, text = self._speech_queue.get_nowait()
                 except queue.Empty:
                     break
-                self._speak(text)
+                if gen == self._speech_gen:
+                    self._speak(text, gen)
         finally:
+            self._speaking_queued = False
+            bus.emit("speech.done", {})
             self._wake_event.clear()
             if self._detector and not self._user_paused:  # don't undo a user's mute
                 self._detector.resume()
@@ -367,14 +423,17 @@ class Orchestrator:
 
     # ── Audio ─────────────────────────────────────────────────────────────────
 
-    def _speak(self, text: str) -> float:
-        """Synthesize and play text. Returns TTS latency in ms."""
+    def _speak(self, text: str, gen: int | None = None) -> float:
+        """Synthesize and play text. Returns TTS latency in ms. Queued speech
+        passes its generation, so a stop that lands mid-synthesis skips it."""
         t0 = time.monotonic()
         tts_path = synthesize_speech(
             text,
             voice_model=self._tts_cfg.get("voice_model", "models/piper/en_US-lessac-medium"),
             speed=self._tts_cfg.get("speed", 1.0),
         )
+        if gen is not None and gen != self._speech_gen:
+            return round((time.monotonic() - t0) * 1000)
         play_wav(tts_path, device=self._audio_cfg.get("output_device"))
         self._last_tts_finished_at = time.monotonic()
         tts_ms = round((time.monotonic() - t0) * 1000)

@@ -82,6 +82,10 @@ interface DannStore {
   // morning report, a finished job hunt) so the chat panel refetches.
   chatPostedCount: number
 
+  // Bumped when the persona finishes (or is stopped) reading aloud, so the
+  // chat's speaker button can go back to its idle state.
+  speechDoneCount: number
+
   // Actions
   applySnapshot: (snapshot: StateSnapshot) => void
   applyEvent: (type: string, payload: Record<string, unknown>) => void
@@ -128,6 +132,7 @@ export const useDannStore = create<DannStore>((set) => ({
   persona: { name: 'Dann', wake_phrase: 'ok Dann' },
   chatActivity: {},
   chatPostedCount: 0,
+  speechDoneCount: 0,
 
   applySnapshot: (snapshot) =>
     set({
@@ -160,6 +165,10 @@ export const useDannStore = create<DannStore>((set) => ({
       case 'chat.job':
       case 'chat.posted':
         set((s) => ({ chatPostedCount: s.chatPostedCount + 1 }))
+        break
+
+      case 'speech.done':
+        set((s) => ({ speechDoneCount: s.speechDoneCount + 1 }))
         break
 
       case 'chat.tool':

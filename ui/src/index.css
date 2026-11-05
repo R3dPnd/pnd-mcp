@@ -278,3 +278,17 @@ header.status-bar {
   animation: work-shimmer 2.4s linear infinite;
 }
 @keyframes work-shimmer { to { background-position: -200% 0; } }
+
+/* Speaker button beside a persona message: shows on hover, glows while reading. */
+.read-aloud-btn {
+  flex: none;
+  color: rgb(var(--pnd-voice-text) / 0.7);
+  background: rgb(var(--pnd-voice-text) / 0.08);
+}
+.read-aloud-btn:hover { color: rgb(var(--pnd-voice-text)); background: rgb(var(--pnd-voice-text) / 0.16); }
+.read-aloud-active {
+  color: rgb(var(--pnd-voice-text));
+  box-shadow: 0 0 10px rgb(var(--pnd-glow) / 0.45);
+  animation: read-aloud-pulse 1.6s ease-in-out infinite;
+}
+@keyframes read-aloud-pulse { 50% { box-shadow: 0 0 2px rgb(var(--pnd-glow) / 0.2); } }

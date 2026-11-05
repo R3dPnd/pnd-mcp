@@ -11,3 +11,8 @@ def play_wav(path: Path | str, device: int | None = None) -> None:
     data, samplerate = sf.read(str(path), dtype="float32")
     sd.play(data, samplerate, device=device)
     sd.wait()
+
+
+def stop_playback() -> None:
+    """Cut off whatever play_wav is playing (its sd.wait() returns)."""
+    sd.stop()

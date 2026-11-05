@@ -83,6 +83,8 @@ export const api = {
   triggerVoice: () => post<{ triggered: boolean }>('/voice/trigger'),
   enableVoice: () => post<{ listening: boolean }>('/voice/enable'),
   disableVoice: () => post<{ listening: boolean }>('/voice/disable'),
+  speak: (text: string) => post<{ queued: boolean }>('/voice/speak', { text }),
+  stopSpeaking: () => post<{ stopped: boolean }>('/voice/speak/stop'),
 
   buildPrompt: (body: { thoughts: string; goals: string; notes: string; custom_sections: { title: string; content: string }[] }) =>
     post<PromptBuilderResult>('/prompt-builder', body),

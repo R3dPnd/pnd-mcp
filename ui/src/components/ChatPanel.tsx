@@ -60,10 +60,33 @@ function relTime(ms: number): string {
   return new Date(ms).toLocaleTimeString()
 }
 
-function MessageBubble({ msg }: { msg: ChatMessage }) {
+function SpeakerIcon({ playing }: { playing: boolean }) {
+  return playing ? (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
+      <rect x="4" y="4" width="8" height="8" rx="1" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M2.5 6h2.5l3.5-3v10l-3.5-3H2.5z" fill="currentColor" stroke="none" />
+      <path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function MessageBubble({
+  msg,
+  personaName,
+  reading,
+  onRead,
+}: {
+  msg: ChatMessage
+  personaName: string
+  reading: boolean
+  onRead: () => void
+}) {
   const isUser = msg.role === 'user'
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`group flex items-start gap-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
           isUser ? 'voice-user-bubble rounded-tr-sm' : 'voice-dann-bubble rounded-tl-sm'
@@ -71,6 +94,18 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       >
         {msg.content}
       </div>
+      {!isUser && (
+        <button
+          onClick={onRead}
+          className={`read-aloud-btn mt-1 rounded-full p-1.5 transition-opacity ${
+            reading ? 'read-aloud-active opacity-100' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+          }`}
+          title={reading ? 'Stop reading' : `Have ${personaName} read this aloud`}
+          aria-label={reading ? 'Stop reading' : 'Read aloud'}
+        >
+          <SpeakerIcon playing={reading} />
+        </button>
+      )}
     </div>
   )
 }
@@ -127,6 +162,8 @@ export default function ChatPanel() {
   const personaName = useDannStore((s) => s.persona.name)
   const chatActivity = useDannStore((s) => s.chatActivity)
   const chatPostedCount = useDannStore((s) => s.chatPostedCount)
+  const speechDoneCount = useDannStore((s) => s.speechDoneCount)
+  const [readingIndex, setReadingIndex] = useState<number | null>(null)
   const [streams, setStreams] = useState<WorkStream[]>([])
   const [focusAreas, setFocusAreas] = useState<FocusArea[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -154,6 +191,25 @@ export default function ChatPanel() {
     api.listStreams().then(setStreams).catch(() => {})
     if (activeId) api.getStream(activeId).then(setActive).catch(() => {})
   }, [chatPostedCount])
+
+  // Reading finished, was stopped, or this chat was left.
+  useEffect(() => setReadingIndex(null), [speechDoneCount, activeId])
+
+  async function toggleReadAloud(index: number, text: string) {
+    setError(null)
+    try {
+      if (readingIndex === index) {
+        await api.stopSpeaking()
+        setReadingIndex(null)
+      } else {
+        await api.speak(text)  // replaces anything already being read
+        setReadingIndex(index)
+      }
+    } catch {
+      setReadingIndex(null)
+      setError(`${personaName} can't read aloud right now — voice is off.`)
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -309,7 +365,15 @@ export default function ChatPanel() {
             {active.messages.length === 0 && (
               <p className="text-center text-xs text-zinc-700">No messages yet — say hello.</p>
             )}
-            {active.messages.map((m, i) => <MessageBubble key={i} msg={m} />)}
+            {active.messages.map((m, i) => (
+              <MessageBubble
+                key={i}
+                msg={m}
+                personaName={personaName}
+                reading={readingIndex === i}
+                onRead={() => toggleReadAloud(i, m.content)}
+              />
+            ))}
             {sending && (
               <div className="flex justify-start">
                 <div className="voice-dann-bubble flex max-w-[80%] items-center gap-2 rounded-lg rounded-tl-sm px-3 py-2 text-sm">
