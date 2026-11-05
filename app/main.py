@@ -120,6 +120,18 @@ async def startup_event() -> None:
         t = threading.Thread(target=_start_orchestrator, daemon=True, name="orchestrator")
         t.start()
 
+    # The job-hunt morning report: delivered once, when the voice pipeline is
+    # ready or at the user's first interaction (at startup in silent mode).
+    try:
+        from app.services import morning_report_service
+        morning_report_service.install(voice_pipeline=not no_voice)
+    except Exception as exc:
+        bus.emit("error", {
+            "module": "morning_report",
+            "message": f"Morning report delivery failed to start: {exc}",
+            "traceback": traceback.format_exc(),
+        })
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:

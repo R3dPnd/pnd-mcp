@@ -807,9 +807,11 @@ class Orchestrator:
         warmup_tts(voice_model=self._tts_cfg.get("voice_model", "models/piper/en_US-lessac-medium"))
         self._speak("Ready.")
         self._running = True
+        # Subscribe before announcing readiness: listeners react to the ready
+        # event by announcing things (the morning report), and those must land.
+        bus.subscribe(self._on_bus_event)
         bus.emit("state.changed", {"mode": self._mode.value, "project": None, "session_id": None, "running": True})
         self._log("Speak-only mode: reading typed replies aloud; not listening.")
-        bus.subscribe(self._on_bus_event)
         try:
             while self._running:
                 self._wake_event.wait(timeout=0.5)  # stop() sets it to exit promptly
@@ -888,6 +890,7 @@ class Orchestrator:
         self._log("Models loaded.")
 
         self._running = True
+        bus.subscribe(self._on_bus_event)  # before the ready event — see _run_speak_only
         bus.emit("state.changed", {
             "mode": self._mode.value,
             "project": None,
@@ -897,7 +900,6 @@ class Orchestrator:
 
         self._log(f"Listening for '{self._wake_phrase}'... (Ctrl+C to stop)")
         self._detector.start()
-        bus.subscribe(self._on_bus_event)
 
         try:
             while self._running:

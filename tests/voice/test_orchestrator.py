@@ -386,3 +386,32 @@ def test_announce_is_spoken_even_with_typed_replies_off(minimal_config):
     o._on_bus_event("chat.turn", {"response": "typed reply"})  # still off
     o._speak_queued()
     assert spoken == ["Morning."]
+
+
+def test_announcements_made_when_ready_are_heard(minimal_config):
+    # Delivery reacts to the orchestrator's "ready" state.changed by emitting
+    # announce — the orchestrator must already be subscribed by then.
+    from voice.event_bus import bus
+
+    cfg = {**minimal_config, "ux": {"speak_typed_replies": True}}
+    with patch("voice.orchestrator.load_config", return_value=cfg):
+        o = Orchestrator(listen=False)
+    spoken = []
+    o._speak = lambda text: spoken.append(text) or 0.0
+
+    def on_ready(t, p):
+        if t == "state.changed" and p.get("running"):
+            bus.emit("announce", {"text": "Morning."})
+
+    def drain_then_stop():
+        Orchestrator._speak_queued(o)
+        o._running = False
+
+    o._speak_queued = drain_then_stop
+    bus.subscribe(on_ready)
+    try:
+        with patch("voice.orchestrator.warmup_tts"):
+            o.run()
+    finally:
+        bus.unsubscribe(on_ready)
+    assert "Morning." in spoken

@@ -46,3 +46,14 @@ def render_report(report_date: str, leads: list[Lead], notes: list[str], deliver
         parts.append("\n".join(f"> {n}" for n in notes))
     parts += [_lead_section(l) for l in leads] if leads else ["No new leads tonight."]
     return "\n\n".join(parts) + "\n"
+
+
+def mark_delivered(report_path: Path, when: str) -> None:
+    """Record in the report's front matter that it has been delivered."""
+    lines = report_path.read_text().splitlines()
+    for i, line in enumerate(lines[1:], start=1):
+        if line == "---":
+            break
+        if line.startswith("delivered_at:"):
+            lines[i] = f"delivered_at: {when}"
+    report_path.write_text("\n".join(lines) + "\n")
