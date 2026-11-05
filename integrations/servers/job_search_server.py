@@ -15,6 +15,8 @@ Exposed tools:
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -22,7 +24,8 @@ from mcp.server.fastmcp import FastMCP
 
 from integrations.job_search.client import JobSearchApp, JobSearchUnavailable
 from integrations.job_search.delivery import chat_text
-from integrations.job_search.leads import Lead, LeadStore
+from integrations.job_search.leads import LeadStore
+from integrations.job_search.lock import lock_path, try_lock
 from shared.persona import data_dir
 
 mcp = FastMCP("job_search")
@@ -157,6 +160,31 @@ def mark_applied_tool(n: int) -> str:
 def update_application_tool(company: str, status: str) -> str:
     """Update a tracked application: status is applied, interviewing, offer, rejected or closed."""
     return update_application(_app(), company, status)
+
+
+RUNTIME_DIR = Path(__file__).resolve().parents[2]
+
+
+def start_hunt_now(base: Path) -> str:
+    """Start a hunt in a detached process (it outlives this server and an
+    Akane restart) that announces its results when done."""
+    probe = try_lock(lock_path(base))
+    if probe is None:
+        return "A hunt is already running — I'll tell you when it's done."
+    probe.close()
+    log_dir = base / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log = open(log_dir / "akane-hunt.log", "a")
+    subprocess.Popen([sys.executable, "-m", "integrations.job_search", "hunt", "--announce"],
+                     cwd=str(RUNTIME_DIR), stdout=log, stderr=subprocess.STDOUT,
+                     stdin=subprocess.DEVNULL, start_new_session=True)
+    return "On it — I'll tell you when the hunt is done."
+
+
+@mcp.tool()
+def start_hunt() -> str:
+    """Run a job hunt now ("find me jobs"); Akane announces the results when it's done."""
+    return start_hunt_now(data_dir())
 
 
 if __name__ == "__main__":

@@ -139,3 +139,22 @@ def test_tools_are_registered_under_the_router_names():
 
     names = {t.name for t in asyncio.run(srv.mcp.list_tools())}
     assert {"get_morning_report", "get_lead", "dismiss_lead", "mark_applied", "update_application"} <= names
+
+
+def test_start_hunt_spawns_detached_process(tmp_path, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(srv.subprocess, "Popen", lambda argv, **kw: spawned.append((argv, kw)))
+    assert srv.start_hunt_now(tmp_path) == "On it — I'll tell you when the hunt is done."
+    ((argv, kw),) = spawned
+    assert argv[1:] == ["-m", "integrations.job_search", "hunt", "--announce"]
+    assert kw["start_new_session"] is True
+
+
+def test_start_hunt_reports_a_running_hunt(tmp_path, monkeypatch):
+    import fcntl
+
+    (tmp_path / "applications").mkdir()
+    monkeypatch.setattr(srv.subprocess, "Popen", lambda *a, **k: pytest.fail("must not spawn"))
+    with open(tmp_path / "applications" / "hunt.lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert srv.start_hunt_now(tmp_path) == "A hunt is already running — I'll tell you when it's done."

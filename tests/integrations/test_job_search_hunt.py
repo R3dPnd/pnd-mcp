@@ -230,3 +230,60 @@ def test_same_job_under_a_new_posting_id_is_not_new(tmp_path):
         posting("p10", title="ai trainer ", company="DataAnnotation", url="https://other.example/listing"),
     ]), fake_claude())
     assert again.added == []
+
+
+# ── Running a hunt from the command line / on demand ──────────────────────────
+
+@pytest.fixture()
+def entry(tmp_path, monkeypatch):
+    import integrations.job_search.__main__ as entry
+    from integrations.job_search.hunt import HuntResult
+    from integrations.job_search.leads import Lead, LeadStore
+
+    store = LeadStore(tmp_path / "applications" / "leads.json")
+    added = store.add([Lead(key="app:p9", title="AI Trainer", org="Mercor", url="https://m.example", pay="$50/h",
+                            location="", remote=True, kind="job", score=88, fit="f", suggestion="s", link="ok")], TODAY)
+    monkeypatch.setattr(entry, "load_config", lambda: {"job_search": {"base_url": "http://app/api/v1"}})
+    monkeypatch.setattr(entry, "data_dir", lambda: tmp_path)
+    monkeypatch.setattr(entry, "run_hunt", lambda cfg, **kw: HuntResult(report_path=tmp_path / "r.md", added=added, notes=[]))
+    return entry
+
+
+def test_second_concurrent_hunt_exits_cleanly(entry, tmp_path, capsys):
+    import fcntl
+
+    lock = tmp_path / "applications" / "hunt.lock"
+    with open(lock, "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        assert entry.main(["hunt"]) == 0
+    assert "already running" in capsys.readouterr().out
+
+
+def test_announce_posts_summary_and_marks_shown(entry, tmp_path, monkeypatch):
+    from integrations.job_search.leads import LeadStore
+
+    posted = []
+    monkeypatch.setattr(entry.requests, "post", lambda url, json, timeout: posted.append((url, json)) or
+                        type("R", (), {"status_code": 200})())
+    assert entry.main(["hunt", "--announce"]) == 0
+    ((url, body),) = posted
+    assert url.endswith("/api/v1/announce")
+    assert body["text"].startswith("Your job hunt is done. 1 new lead.") and "Mercor" in body["text"]
+    assert body["chat_title"] == "Morning report" and "## 1. AI Trainer — Mercor" in body["chat_text"]
+    assert LeadStore(tmp_path / "applications" / "leads.json").by_number(1).status == "shown"
+
+
+def test_announce_falls_back_to_pending_when_api_down(entry, tmp_path, monkeypatch):
+    from integrations.job_search.delivery import pending_path
+
+    def down(*a, **k):
+        raise entry.requests.ConnectionError("refused")
+    monkeypatch.setattr(entry.requests, "post", down)
+    assert entry.main(["hunt", "--announce"]) == 0
+    pending = json.loads(pending_path(tmp_path).read_text())
+    assert pending[0]["text"].startswith("Your job hunt is done.") and "Mercor" in pending[0]["chat"]
+
+
+def test_nightly_hunt_does_not_announce(entry, monkeypatch):
+    monkeypatch.setattr(entry.requests, "post", lambda *a, **k: pytest.fail("nightly hunts don't announce"))
+    assert entry.main(["hunt"]) == 0

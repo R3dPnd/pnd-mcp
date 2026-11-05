@@ -15,6 +15,7 @@ router = APIRouter()
 class Announcement(BaseModel):
     text: str
     chat_title: str | None = None
+    chat_text: str | None = None  # posted instead of `text` (e.g. the full lead list)
 
 
 @router.post("", summary="Say something when idle, and optionally post it to a chat stream")
@@ -23,5 +24,6 @@ async def announce(body: Announcement) -> JSONResponse:
     if not text:
         return JSONResponse({"error": "text is required"}, status_code=400)
     bus.emit("announce", {"text": text})
-    stream_id = chat_service.post_assistant_message(body.chat_title, text) if body.chat_title else None
+    chat = (body.chat_text or "").strip() or text
+    stream_id = chat_service.post_assistant_message(body.chat_title, chat) if body.chat_title else None
     return JSONResponse({"ok": True, "stream_id": stream_id})

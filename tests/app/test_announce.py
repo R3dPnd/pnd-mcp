@@ -54,3 +54,9 @@ def test_announce_without_chat_title_only_speaks(chat):
 
 def test_announce_endpoint_rejects_blank_text(chat):
     assert TestClient(app).post("/api/v1/announce", json={"text": "  "}).status_code == 400
+
+
+def test_announce_can_post_different_text_to_the_chat(chat):
+    body = TestClient(app).post("/api/v1/announce", json={
+        "text": "Your job hunt is done. 2 new leads.", "chat_title": "Morning report", "chat_text": "## 9. X — Y"}).json()
+    assert chat.get_stream(body["stream_id"])["messages"][-1]["content"] == "## 9. X — Y"

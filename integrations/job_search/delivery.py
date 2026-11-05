@@ -37,12 +37,12 @@ def _first_sentence(text: str) -> str:
     return re.split(r"(?<=[.!?])\s", text.strip(), maxsplit=1)[0].rstrip(" .:") + "."
 
 
-def spoken_summary(leads: list[Lead], notes: list[str], opening: str = "Morning.") -> str:
+def spoken_summary(leads: list[Lead], notes: list[str], opening: str = "Morning.", period: str = " overnight") -> str:
     """About three sentences, no URLs: how many leads, the best three, any problem."""
     if not leads:
-        parts = [f"{opening} No new leads overnight."]
+        parts = [f"{opening} No new leads{period}."]
     else:
-        count = f"{len(leads)} new lead{'s' if len(leads) != 1 else ''} overnight."
+        count = f"{len(leads)} new lead{'s' if len(leads) != 1 else ''}{period}."
         top = [f"{l.org}'s {_short_title(l.title)}" + (f" at {l.pay}" if l.pay else "") for l in leads[:3]]
         label = {1: "It's", 2: "The best two:"}.get(len(top), "The best three:")
         best = top[0] if len(top) == 1 else "; ".join(top[:-1]) + f"; and {top[-1]}"
