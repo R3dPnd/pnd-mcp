@@ -82,16 +82,52 @@ def _resolve_focus_area(name: str) -> dict[str, Any] | None:
     return next((a for a in list_focus_areas() if a["name"] == name), None)
 
 
+# Tools that start background work whose result is posted into a chat later.
+# While it runs the stream carries `pending_job`, so the dashboard can show a
+# working indicator (and keep showing it across a reload).
+_BACKGROUND_TOOLS = {"think_deeply": ("think", "Claude is working on it"),
+                     "start_hunt": ("hunt", "Job hunt running")}
+_PENDING_MAX_AGE_S = 20 * 60  # a crashed job never posts — stop spinning eventually
+
+
+def _expire_pending(stream: dict[str, Any]) -> None:
+    job = stream.get("pending_job")
+    if job and time.time() - job.get("started", 0) > _PENDING_MAX_AGE_S:
+        stream["pending_job"] = None
+
+
+def _mark_pending(stream_id: str, tool: str) -> None:
+    kind, label = _BACKGROUND_TOOLS[tool]
+    with _lock:
+        stream = _streams.get(stream_id)
+        if stream is None:
+            return
+        stream["pending_job"] = {"kind": kind, "label": label, "started": time.time()}
+        _persist()
+    bus.emit("chat.job", {"stream_id": stream_id, "label": label})
+
+
+def _on_tool(stream_id: str, tool: str) -> None:
+    bus.emit("chat.tool", {"session_id": stream_id, "tool": tool})
+    if tool in _BACKGROUND_TOOLS:
+        _mark_pending(stream_id, tool)
+
+
 def list_streams() -> list[dict[str, Any]]:
     _ensure_loaded()
     with _lock:
+        for stream in _streams.values():
+            _expire_pending(stream)
         return sorted(_streams.values(), key=lambda s: s["updated_at"], reverse=True)
 
 
 def get_stream(stream_id: str) -> dict[str, Any] | None:
     _ensure_loaded()
     with _lock:
-        return _streams.get(stream_id)
+        stream = _streams.get(stream_id)
+        if stream is not None:
+            _expire_pending(stream)
+        return stream
 
 
 def create_stream(focus_area: str, title: str = "") -> dict[str, Any]:
@@ -131,6 +167,7 @@ def post_to_stream(stream_id: str, text: str) -> bool:
         stream["messages"].append({"role": "assistant", "content": text, "ts": now})
         stream["messages"] = stream["messages"][-_MAX_HISTORY:]
         stream["updated_at"] = now
+        stream["pending_job"] = None  # the background result has arrived
         _persist()
     bus.emit("chat.posted", {"stream_id": stream_id})
     return True
@@ -154,6 +191,11 @@ def post_assistant_message(title: str, text: str) -> str:
         stream["messages"].append({"role": "assistant", "content": text, "ts": now})
         stream["messages"] = stream["messages"][-_MAX_HISTORY:]
         stream["updated_at"] = now
+        if title == "Morning report":
+            # A finished job hunt posts here; any chat that started one is done waiting.
+            for other in _streams.values():
+                if (other.get("pending_job") or {}).get("kind") == "hunt":
+                    other["pending_job"] = None
         _persist()
     bus.emit("chat.posted", {"stream_id": stream["id"]})  # the dashboard refreshes on this
     return stream["id"]
@@ -256,7 +298,7 @@ def send_message(stream_id: str, text: str) -> dict[str, Any]:
         history=history,
         keep_alive=ollama_cfg.get("keep_alive"),
         session_context={"focus_area": focus_area, "stream_id": stream_id} if focus_area else {"stream_id": stream_id},
-        on_tool=lambda tool: bus.emit("chat.tool", {"session_id": stream_id, "tool": tool}),
+        on_tool=lambda tool: _on_tool(stream_id, tool),
     )
     latency_ms = round((time.monotonic() - t0) * 1000)
     response = response or EMPTY_REPLY_FALLBACK

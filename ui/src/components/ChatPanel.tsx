@@ -21,6 +21,38 @@ function activityLabel(tool: string | undefined): string {
   return TOOL_ACTIVITY[tool] ?? `using ${tool.replace(/_/g, ' ')}…`
 }
 
+function TypingDots() {
+  return (
+    <span className="typing-dots" aria-label="thinking">
+      <span /><span /><span />
+    </span>
+  )
+}
+
+function elapsed(fromSec: number, nowMs: number): string {
+  const s = Math.max(0, Math.floor(nowMs / 1000 - fromSec))
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
+}
+
+// Background work (think_deeply, a job hunt) still running for this chat —
+// stays until the result is posted, and survives a reload (it's server state).
+function WorkingIndicator({ job }: { job: { label: string; started: number } }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="flex justify-start" role="status">
+      <div className="voice-dann-bubble flex max-w-[80%] items-center gap-3 rounded-lg rounded-tl-sm px-3 py-2 text-sm">
+        <span className="work-spinner" />
+        <span className="work-shimmer">{job.label}…</span>
+        <span className="text-xs text-zinc-500">{elapsed(job.started, now)}</span>
+      </div>
+    </div>
+  )
+}
+
 function relTime(ms: number): string {
   const diff = (Date.now() - ms) / 1000
   if (diff < 60) return `${Math.floor(diff)}s ago`
@@ -220,7 +252,10 @@ export default function ChatPanel() {
                 }`}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-medium text-zinc-200">{s.title}</p>
+                  <p className="flex items-center gap-1.5 truncate text-xs font-medium text-zinc-200">
+                    {s.pending_job && <span className="work-spinner work-spinner-sm" title={s.pending_job.label} />}
+                    <span className="truncate">{s.title}</span>
+                  </p>
                   <p className="truncate text-[10px] text-zinc-500">
                     {s.title !== s.focus_area && `${s.focus_area} · `}{relTime(s.updated_at * 1000)}
                   </p>
@@ -277,11 +312,13 @@ export default function ChatPanel() {
             {active.messages.map((m, i) => <MessageBubble key={i} msg={m} />)}
             {sending && (
               <div className="flex justify-start">
-                <div className="voice-dann-bubble max-w-[80%] rounded-lg rounded-tl-sm px-3 py-2 text-sm opacity-60">
-                  {activityLabel(activeId ? chatActivity[activeId] : undefined)}
+                <div className="voice-dann-bubble flex max-w-[80%] items-center gap-2 rounded-lg rounded-tl-sm px-3 py-2 text-sm">
+                  <TypingDots />
+                  <span className="opacity-70">{activityLabel(activeId ? chatActivity[activeId] : undefined)}</span>
                 </div>
               </div>
             )}
+            {!sending && active.pending_job && <WorkingIndicator job={active.pending_job} />}
             <div ref={bottomRef} />
           </div>
 

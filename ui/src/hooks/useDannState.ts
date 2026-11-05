@@ -157,6 +157,7 @@ export const useDannStore = create<DannStore>((set) => ({
         }))
         break
 
+      case 'chat.job':
       case 'chat.posted':
         set((s) => ({ chatPostedCount: s.chatPostedCount + 1 }))
         break

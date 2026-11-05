@@ -138,6 +138,9 @@ export interface WorkStream {
   created_at: number
   updated_at: number
   messages: ChatMessage[]
+  // Background work (think_deeply, a job hunt) whose result will be posted
+  // here; the chat shows a working indicator until it arrives.
+  pending_job?: { kind: string; label: string; started: number } | null
 }
 
 export interface DevTeamJob {
