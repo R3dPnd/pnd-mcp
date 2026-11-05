@@ -87,3 +87,22 @@ def test_5xx_raises_unavailable_with_app_message():
 def test_healthy():
     assert JobSearchApp(BASE, http=FakeSession({("GET", "/health"): FakeResponse(200)})).healthy() is True
     assert JobSearchApp(BASE, http=FakeSession(raise_on=requests.ConnectionError())).healthy() is False
+
+
+def test_unreachable_message_is_the_same_for_every_request():
+    # A real ConnectionError's text includes the request path and query, so
+    # each search used to produce a different note (review: 7 notes, not 1).
+    class Varying(FakeSession):
+        n = 0
+
+        def request(self, method, url, **kw):
+            Varying.n += 1
+            raise requests.ConnectionError(f"Max retries exceeded with url: {url}?n={Varying.n}")
+
+    app = JobSearchApp(BASE, http=Varying())
+    messages = set()
+    for q in ("a", "b"):
+        with pytest.raises(JobSearchUnavailable) as e:
+            app.search(q)
+        messages.add(str(e.value))
+    assert messages == {f"job search app not reachable at {BASE}"}

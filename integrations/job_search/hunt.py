@@ -100,11 +100,16 @@ def run_hunt(cfg: dict[str, Any], *, app: JobSearchApp, store: LeadStore,
             note(str(e))
 
     if any(_is_gig_kind(k) for k in criteria["kinds"]):
-        known_urls = [l.url for l in store.for_date(today)] + [c["url"] for c in candidates.values()]
+        # Every gig URL ever reported (capped), not just today's — otherwise
+        # Claude re-proposes the same platforms nightly and they're all dropped.
+        known_urls = store.urls(kind="gig")[-200:] + [c["url"] for c in candidates.values()]
         gig = claude(gig_prompt(criteria, location, resume[:600], known_urls),
                      allowed_tools=["WebSearch", "WebFetch"], timeout=_GIG_TIMEOUT)
+        gigs = parse_gigs(gig.text) if gig.ok else None
+        if gig.ok and gigs is None:
+            note("Gig search answered without a list; no gig leads tonight.")
         if gig.ok:
-            for g in parse_gigs(gig.text):
+            for g in gigs or []:
                 c = _gig_candidate(g)
                 if c["key"] not in known:
                     candidates.setdefault(c["key"], c)
@@ -121,6 +126,8 @@ def run_hunt(cfg: dict[str, Any], *, app: JobSearchApp, store: LeadStore,
             if not reply.ok:
                 raise ValueError(reply.error)
             screens = parse_screen(reply.text)
+            if not set(screens) & {c["key"] for c in pool}:
+                raise ValueError("the screen's keys matched none of the postings")
             screened = [(c, s.score, s.fit, s.suggestion) for c in pool
                         if (s := screens.get(c["key"])) is not None and s.keep]
         except ValueError as e:

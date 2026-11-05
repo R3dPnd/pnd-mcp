@@ -33,10 +33,14 @@ class Lead:
 
 
 def normalize_url(url: str) -> str:
-    """Same posting, same key: lowercase scheme/host, no fragment, no utm_* params."""
+    """Same page, same key: lowercase scheme/host, no leading www., no trailing
+    slash (the root stays "/"), no fragment, no utm_* params. Web search
+    returns the same page in all these forms."""
     parts = urlsplit(url.strip())
+    host = parts.netloc.lower().removeprefix("www.")
+    path = parts.path.rstrip("/") or "/"
     query = urlencode([(k, v) for k, v in parse_qsl(parts.query) if not k.lower().startswith("utm_")])
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, query, ""))
+    return urlunsplit((parts.scheme.lower(), host, path, query, ""))
 
 
 class LeadStore:
@@ -69,6 +73,9 @@ class LeadStore:
         self._leads += added
         self._save()
         return added
+
+    def urls(self, kind: str | None = None) -> list[str]:
+        return [l.url for l in self._leads if kind is None or l.kind == kind]
 
     def for_date(self, report_date: str) -> list[Lead]:
         return sorted((l for l in self._leads if l.report_date == report_date), key=lambda l: l.number)

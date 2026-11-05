@@ -32,15 +32,22 @@ def _criteria_block(criteria: dict[str, Any], location: str) -> str:
 
 
 def _json_array(text: str) -> list[Any]:
+    """The JSON array in a model reply: a fenced block if there is one, else
+    the first "[" that starts a decodable array — web-search replies wrap it
+    in citation markers like "[1]", so first-"[" to last-"]" isn't enough."""
     fenced = _FENCE.search(text)
     body = fenced.group(1) if fenced else text
-    start, end = body.find("["), body.rfind("]")
-    if start == -1 or end < start:
-        raise ValueError("no JSON array in reply")
-    data = json.loads(body[start:end + 1])
-    if not isinstance(data, list):
-        raise ValueError("reply is not a JSON array")
-    return data
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(body):
+        if ch != "[":
+            continue
+        try:
+            data, _ = decoder.raw_decode(body, i)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, list) and (not data or any(isinstance(x, dict) for x in data)):
+            return data
+    raise ValueError("no JSON array in reply")
 
 
 def screen_prompt(candidates: list[dict], resume: str, criteria: dict[str, Any], location: str) -> str:
@@ -93,13 +100,13 @@ def gig_prompt(criteria: dict[str, Any], location: str, resume_summary: str, kno
     )
 
 
-def parse_gigs(text: str) -> list[dict]:
-    """Gig leads with a real http(s) URL; [] when the reply has no JSON
-    (gig results are a bonus — their absence mustn't sink the hunt)."""
+def parse_gigs(text: str) -> list[dict] | None:
+    """Gig leads with a real http(s) URL; None when the reply has no list at
+    all (the hunt notes that), [] when the list is genuinely empty."""
     try:
         items = _json_array(text)
-    except (ValueError, json.JSONDecodeError):
-        return []
+    except ValueError:
+        return None
     return [
         {**i, "kind": "gig"} for i in items
         if isinstance(i, dict) and str(i.get("url", "")).startswith(("http://", "https://"))

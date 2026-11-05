@@ -23,7 +23,9 @@ class JobSearchApp:
         try:
             resp = self.http.request(method, f"{self.base_url}{path}", params=params, timeout=timeout)
         except requests.RequestException as e:
-            raise JobSearchUnavailable(f"job search app not reachable at {self.base_url}: {e}") from e
+            # Fixed text, not str(e): that embeds the request URL, so every
+            # search would add a different note to the report.
+            raise JobSearchUnavailable(f"job search app not reachable at {self.base_url}") from e
         if resp.status_code >= 500:
             try:
                 detail = resp.json().get("error") or ""

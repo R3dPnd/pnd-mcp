@@ -172,3 +172,47 @@ def test_main_runs_a_hunt_with_the_persona_data_dir(tmp_path, monkeypatch, capsy
     assert seen["store"].path == tmp_path / "applications" / "leads.json"
     assert seen["reports_dir"] == tmp_path / "applications" / "reports"
     assert "note: set JOBS_API_KEY" in capsys.readouterr().out
+
+
+def test_app_down_with_varying_errors_gives_one_note(tmp_path):
+    class Down(FakeApp):
+        def search(self, query, location="", remote=False):
+            raise JobSearchUnavailable("job search app not reachable at http://localhost:8080/api/v1")
+
+        def active_resume_text(self):
+            raise JobSearchUnavailable("job search app not reachable at http://localhost:8080/api/v1")
+
+    report = hunt(tmp_path, Down(), fake_claude(gigs=[GIG])).report_path.read_text()
+    assert report.count("not reachable") == 1
+
+
+def test_gig_search_is_told_every_known_gig_url_not_just_todays(tmp_path):
+    prompts = []
+
+    def claude(prompt, allowed_tools=None, timeout=120):
+        if allowed_tools:
+            prompts.append(prompt)
+            return ClaudeResult(ok=True, text=json.dumps([GIG]), error="")
+        return fake_claude()(prompt, allowed_tools, timeout)
+
+    hunt(tmp_path, FakeApp(), claude)
+    hunt(tmp_path, FakeApp(), claude, today="2026-11-06")
+    assert "https://www.dataannotation.tech/" in prompts[1]
+
+
+def test_gig_reply_without_a_list_is_noted(tmp_path):
+    def claude(prompt, allowed_tools=None, timeout=120):
+        if allowed_tools:
+            return ClaudeResult(ok=True, text="Sorry, I couldn't search right now.", error="")
+        return fake_claude()(prompt, allowed_tools, timeout)
+
+    report = hunt(tmp_path, FakeApp([posting("p1")]), claude).report_path.read_text()
+    assert "gig search" in report.lower() and "no gig leads" in report.lower()
+
+
+def test_screen_with_no_matching_keys_falls_back_to_unscored_with_a_note(tmp_path):
+    mangled = json.dumps([{"key": "app:p", "keep": True, "score": 90, "fit": "f", "suggestion": "s"}])
+    result = hunt(tmp_path, FakeApp([posting("p1"), posting("p2")]), fake_claude(screen_text=mangled))
+    report = result.report_path.read_text()
+    assert len(result.added) == 2
+    assert "not screened" in report.lower()

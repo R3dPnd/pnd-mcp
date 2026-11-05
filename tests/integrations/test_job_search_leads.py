@@ -1,5 +1,7 @@
 """integrations.job_search.leads — numbering, no repeats, persistence."""
 
+import pytest
+
 from integrations.job_search.leads import Lead, LeadStore, normalize_url
 
 
@@ -53,3 +55,15 @@ def test_store_survives_reload_and_status_changes(tmp_path):
 def test_empty_store(tmp_path):
     store = LeadStore(tmp_path / "missing" / "leads.json")
     assert store.known_keys() == set() and store.latest_report_date() is None and store.by_number(1) is None
+
+
+@pytest.mark.parametrize("variant", [
+    "https://www.dataannotation.tech/", "https://www.dataannotation.tech", "https://dataannotation.tech/",
+    "HTTPS://DataAnnotation.tech", "https://dataannotation.tech/?utm_source=x",
+])
+def test_url_variants_of_the_same_page_share_a_key(variant):
+    assert normalize_url(variant) == "https://dataannotation.tech/"
+
+
+def test_trailing_slash_dropped_on_paths():
+    assert normalize_url("https://www.opentrain.ai/jobs/go-review/") == "https://opentrain.ai/jobs/go-review"

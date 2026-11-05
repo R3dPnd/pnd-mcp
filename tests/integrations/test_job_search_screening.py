@@ -49,5 +49,13 @@ def test_parse_gigs_drops_items_without_urls():
     assert [g["org"] for g in gigs] == ["DataAnnotation"]
 
 
-def test_parse_gigs_on_prose_is_empty():
-    assert parse_gigs("I couldn't find any.") == []
+
+
+def test_parse_gigs_handles_citation_markers_around_the_array():
+    text = 'I found these [1]: [{"title": "T", "org": "A", "url": "https://a.com", "kind": "gig"}] see [2]'
+    assert [g["url"] for g in parse_gigs(text)] == ["https://a.com"]
+
+
+def test_parse_gigs_distinguishes_no_list_from_empty_list():
+    assert parse_gigs("[]") == []
+    assert parse_gigs("I couldn't find any open gigs today.") is None
