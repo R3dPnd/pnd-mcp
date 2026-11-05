@@ -120,6 +120,28 @@ def create_stream(focus_area: str, title: str = "") -> dict[str, Any]:
     return stream
 
 
+def post_assistant_message(title: str, text: str) -> str:
+    """Append an assistant message to the work stream titled `title`, creating
+    it under the first enabled focus area if needed — how background work
+    (the morning report, a finished job hunt) shows up in the chat. Returns
+    the stream id."""
+    _ensure_loaded()
+    with _lock:
+        stream = next((s for s in _streams.values() if s.get("title") == title), None)
+    if stream is None:
+        areas = list_focus_areas()
+        if not areas:
+            raise UnknownStreamError("no enabled focus area to hold the stream")
+        stream = create_stream(areas[0]["name"], title)
+    now = time.time()
+    with _lock:
+        stream["messages"].append({"role": "assistant", "content": text, "ts": now})
+        stream["messages"] = stream["messages"][-_MAX_HISTORY:]
+        stream["updated_at"] = now
+        _persist()
+    return stream["id"]
+
+
 def delete_stream(stream_id: str) -> bool:
     _ensure_loaded()
     with _lock:

@@ -170,14 +170,18 @@ class Orchestrator:
     # ── Callbacks ─────────────────────────────────────────────────────────────
 
     def _on_bus_event(self, event_type: str, payload: dict[str, Any]) -> None:
-        """Queue each typed-chat reply to be read aloud, when the persona's
-        `ux.speak_typed_replies` is on. Runs on the emitting (API) thread, so
-        it only enqueues."""
-        if event_type != "chat.turn" or not self._ux_cfg.get("speak_typed_replies", False):
+        """Queue text to be read aloud when idle: every `announce` (background
+        work telling the user something), and typed-chat replies when the
+        persona's `ux.speak_typed_replies` is on. Runs on the emitting (API)
+        thread, so it only enqueues."""
+        if event_type == "announce":
+            text = (payload.get("text") or "").strip()
+        elif event_type == "chat.turn" and self._ux_cfg.get("speak_typed_replies", False):
+            text = (payload.get("response") or "").strip()
+        else:
             return
-        response = (payload.get("response") or "").strip()
-        if response:
-            self._speech_queue.put(response)
+        if text:
+            self._speech_queue.put(text)
 
     def _speak_queued(self) -> None:
         """Speak every queued typed-chat reply, in order. Wake detection is

@@ -375,3 +375,14 @@ class TestPersonaNamedOutput:
 
     def test_listening_line_uses_the_wake_phrase_not_the_model_file(self, akane):
         assert akane._wake_phrase == "ok Akane"
+
+
+def test_announce_is_spoken_even_with_typed_replies_off(minimal_config):
+    with patch("voice.orchestrator.load_config", return_value={**minimal_config, "ux": {}}):
+        o = Orchestrator()
+    spoken = []
+    o._speak = lambda text: spoken.append(text) or 0.0
+    o._on_bus_event("announce", {"text": "Morning."})
+    o._on_bus_event("chat.turn", {"response": "typed reply"})  # still off
+    o._speak_queued()
+    assert spoken == ["Morning."]
