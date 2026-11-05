@@ -353,3 +353,12 @@ class TestLoopGuard:
         assert len(sent) == 2
         assert "working on" not in result.lower() and "nothing is running" in result.lower()
         assert "claude" in result.lower()
+
+
+def test_a_long_chat_gets_time_for_a_cold_read():
+    # Measured: the first turn of a long chat after a restart took ~185 s to
+    # read on the M1; a 120 s timeout turned it into a 500.
+    with patch("voice.llm.ollama.requests.post", return_value=_mock_response("ok")) as post:
+        from voice.llm.ollama import generate_response
+        generate_response("hi")
+    assert post.call_args.kwargs["timeout"] >= 300

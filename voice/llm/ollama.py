@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from integrations.client import MCPManager
 
 _MAX_TOOL_ROUNDS = 5
+# A long chat read cold (after a restart, or another chat used the cache)
+# measured ~185 s on an M1 before the first token; 120 s turned it into a 500.
+_CHAT_TIMEOUT_S = 360
 
 # "Let me look that up" with no tool call: the turn ends and nothing is running,
 # though it sounds like something is. Seen live with qwen3:8b.
@@ -189,7 +192,7 @@ def generate_response(
         # (open_claude_code/ask_claude_code/open_terminal) can be feeding
         # back a large captured-output message, and a cold model load adds
         # its own real delay on top of that.
-        resp = requests.post(url, json=payload, timeout=120)
+        resp = requests.post(url, json=payload, timeout=_CHAT_TIMEOUT_S)
         resp.raise_for_status()
         msg = resp.json().get("message", {})
 
@@ -200,7 +203,7 @@ def generate_response(
             # only on these rare rounds).
             print("[llm] Empty reply — retrying this round with thinking allowed.", flush=True)
             retry = {k: v for k, v in payload.items() if k != "think"}
-            resp = requests.post(url, json=retry, timeout=120)
+            resp = requests.post(url, json=retry, timeout=_CHAT_TIMEOUT_S)
             resp.raise_for_status()
             msg = resp.json().get("message", {})
 
