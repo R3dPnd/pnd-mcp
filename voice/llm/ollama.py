@@ -40,6 +40,11 @@ _ACT_NOW_NUDGE = (
     "plans or anything needing real work: think_deeply). Otherwise answer directly, "
     "without claiming to be working on something."
 )
+# When a "working on it" claim survives the nudge, the user gets this instead.
+_NOTHING_RUNNING = (
+    "Sorry, I haven't actually started anything for that, and nothing is running right now. "
+    "Ask me again and I'll hand it to Claude."
+)
 _SENTENCE_END = re.compile(r'(?<=[.!?])\s+')
 _MIN_CHUNK_LEN = 15
 
@@ -209,6 +214,9 @@ def generate_response(
                 messages.append(msg)
                 messages.append({"role": "system", "content": _REPEAT_NUDGE if repeated else _ACT_NOW_NUDGE})
                 continue
+            if nudged and not called_a_tool and tools and mcp and _CLAIMS_PROGRESS.search(content):
+                print("[llm] Still claiming to be working after the nudge — telling the user the truth.", flush=True)
+                return _NOTHING_RUNNING
             return content
 
         called_a_tool = True

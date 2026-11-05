@@ -344,3 +344,12 @@ class TestLoopGuard:
             assert len(sent) == 2 and result.startswith("Topic ideas"), claim
             assert "think_deeply" in sent[1]["messages"][-1]["content"]
 
+
+    def test_a_progress_claim_that_survives_the_nudge_is_replaced_with_the_truth(self):
+        # Live: "try again" → nudge → "I'm still working on verifying your thesis plan…"
+        # with nothing running. A false "working on it" never reaches the user.
+        claim = "I'm still working on verifying your thesis plan. Let me know if you'd like to try a different approach!"
+        result, sent = self._run([_mock_response(claim), _mock_response(claim)])
+        assert len(sent) == 2
+        assert "working on" not in result.lower() and "nothing is running" in result.lower()
+        assert "claude" in result.lower()
