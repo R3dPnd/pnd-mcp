@@ -269,8 +269,13 @@ class Orchestrator:
                     gen, text = self._speech_queue.get_nowait()
                 except queue.Empty:
                     break
-                if gen == self._speech_gen:
+                if gen != self._speech_gen:
+                    continue
+                try:
                     self._speak(text, gen)
+                except Exception as exc:  # one failed reply must never end the voice thread
+                    bus.emit("error", {"module": "tts", "message": f"Couldn't read a reply aloud: {exc}",
+                                       "traceback": traceback.format_exc()})
         finally:
             self._speaking_queued = False
             bus.emit("speech.done", {})

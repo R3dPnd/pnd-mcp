@@ -517,3 +517,25 @@ class TestReadAloud:
         with patch("voice.orchestrator.stop_playback") as stop:
             speaking_orch.stop_speaking()  # nothing queued is playing
         stop.assert_not_called()
+
+
+def test_a_failed_reply_never_kills_the_voice_thread(speaking_orch):
+    # Live: one PortAudio error escaped _speak_queued and ended the orchestrator,
+    # so nothing was read aloud again until a restart.
+    def speak(text, gen=None):
+        if text == "One.":
+            raise RuntimeError("Error opening OutputStream")
+        speaking_orch.spoken.append((text, []))
+        return 0.0
+    speaking_orch._speak = speak
+    events = []
+    listener = lambda t, p: events.append(t)
+    bus.subscribe(listener)
+    try:
+        for reply in ("One.", "Two."):
+            speaking_orch._on_bus_event("chat.turn", {"response": reply})
+        speaking_orch._speak_queued()
+    finally:
+        bus.unsubscribe(listener)
+    assert [t for t, _ in speaking_orch.spoken] == ["Two."]
+    assert "error" in events and speaking_orch._detector.calls[-1] == "resume"

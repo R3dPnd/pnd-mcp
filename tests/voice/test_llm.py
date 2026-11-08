@@ -362,3 +362,17 @@ def test_a_long_chat_gets_time_for_a_cold_read():
         from voice.llm.ollama import generate_response
         generate_response("hi")
     assert post.call_args.kwargs["timeout"] >= 300
+
+
+def test_a_leaked_agent_label_line_is_dropped():
+    # Live: "local\n\nYou could try making simple wooden crafts…" — the routing
+    # section's agent name, then read aloud as "local".
+    with patch("voice.llm.ollama.requests.post", return_value=_mock_response("local\n\nYou could try wooden coasters.")):
+        from voice.llm.ollama import generate_response
+        assert generate_response("gift ideas?") == "You could try wooden coasters."
+
+
+def test_an_ordinary_first_line_is_kept():
+    with patch("voice.llm.ollama.requests.post", return_value=_mock_response("Sure!\n\nTry wooden coasters.")):
+        from voice.llm.ollama import generate_response
+        assert generate_response("gift ideas?") == "Sure!\n\nTry wooden coasters."

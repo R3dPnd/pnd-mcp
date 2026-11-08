@@ -48,6 +48,9 @@ _NOTHING_RUNNING = (
     "Sorry, I haven't actually started anything for that, and nothing is running right now. "
     "Ask me again and I'll hand it to Claude."
 )
+# A bare lowercase label alone on the first line ("local\n\nYou could…"): the
+# model echoing an agent name from the routing section. Seen live with qwen3:8b.
+_LEAKED_LABEL = re.compile(r"\A[a-z_]+\s*\n\s*\n")
 _SENTENCE_END = re.compile(r'(?<=[.!?])\s+')
 _MIN_CHUNK_LEN = 15
 
@@ -209,7 +212,7 @@ def generate_response(
 
         tool_calls = msg.get("tool_calls")
         if not tool_calls or not mcp:
-            content = (msg.get("content") or "").strip()
+            content = _LEAKED_LABEL.sub("", (msg.get("content") or "").strip())
             repeated = bool(content) and content == last_reply
             if not nudged and not called_a_tool and (repeated or (tools and mcp and (_ANNOUNCES_ACTION.search(content) or _CLAIMS_PROGRESS.search(content)))):
                 nudged = True

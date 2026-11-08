@@ -4,6 +4,7 @@ import wave
 import pytest
 import numpy as np
 from pathlib import Path
+from unittest.mock import patch
 
 from voice.audio.capture import save_wav
 
@@ -91,3 +92,44 @@ class TestRmsEnergyGate:
         speech = (np.ones(1600, dtype=np.int16) * 10000).tobytes()
         rms = self._rms(speech)
         assert rms > self._MIN_SPEECH_RMS
+
+
+# ── Recovering the speaker after sleep / device changes ──────────────────────
+
+class TestPlaybackRecovery:
+    """Live: after two days asleep, the long-running process's PortAudio
+    state was stale — 'Error opening OutputStream: Internal PortAudio error
+    [-9986]' — while a fresh process opened the same speaker fine."""
+
+    def _wav(self, tmp_path):
+        import numpy as np
+        import soundfile as sf
+        path = tmp_path / "x.wav"
+        sf.write(str(path), np.zeros(160, dtype="float32"), 16000)
+        return path
+
+    def test_a_stale_audio_system_is_refreshed_and_retried(self, tmp_path):
+        import sounddevice as sd
+        from voice.audio import playback
+        calls = []
+
+        def play(*a, **k):
+            calls.append("play")
+            if len(calls) == 1:
+                raise sd.PortAudioError("Error opening OutputStream: Internal PortAudio error", -9986)
+
+        with patch.object(playback.sd, "play", side_effect=play), patch.object(playback.sd, "wait"), \
+             patch.object(playback.sd, "_terminate", side_effect=lambda: calls.append("terminate")), \
+             patch.object(playback.sd, "_initialize", side_effect=lambda: calls.append("initialize")):
+            playback.play_wav(self._wav(tmp_path))
+        assert calls == ["play", "terminate", "initialize", "play"]
+
+    def test_a_speaker_that_still_fails_raises(self, tmp_path):
+        import pytest
+        import sounddevice as sd
+        from voice.audio import playback
+        err = sd.PortAudioError("nope", -9986)
+        with patch.object(playback.sd, "play", side_effect=err), patch.object(playback.sd, "wait"), \
+             patch.object(playback.sd, "_terminate"), patch.object(playback.sd, "_initialize"):
+            with pytest.raises(sd.PortAudioError):
+                playback.play_wav(self._wav(tmp_path))
