@@ -1,5 +1,6 @@
 """Unit tests for the audio capture module."""
 
+import sys
 import wave
 import pytest
 import numpy as np
@@ -121,7 +122,7 @@ class TestPlaybackRecovery:
         with patch.object(playback.sd, "play", side_effect=play), patch.object(playback.sd, "wait"), \
              patch.object(playback.sd, "_terminate", side_effect=lambda: calls.append("terminate")), \
              patch.object(playback.sd, "_initialize", side_effect=lambda: calls.append("initialize")):
-            playback.play_wav(self._wav(tmp_path))
+            playback.play_wav(self._wav(tmp_path), device=2)
         assert calls == ["play", "terminate", "initialize", "play"]
 
     def test_a_speaker_that_still_fails_raises(self, tmp_path):
@@ -132,4 +133,131 @@ class TestPlaybackRecovery:
         with patch.object(playback.sd, "play", side_effect=err), patch.object(playback.sd, "wait"), \
              patch.object(playback.sd, "_terminate"), patch.object(playback.sd, "_initialize"):
             with pytest.raises(sd.PortAudioError):
-                playback.play_wav(self._wav(tmp_path))
+                playback.play_wav(self._wav(tmp_path), device=2)
+
+
+# ── Following the output macOS has selected now ───────────────────────────────
+
+class TestPlaybackFollowsSystemOutput:
+    """Live: Akane, three days running, read a reply aloud on the laptop
+    speakers though the headset was the macOS default — PortAudio had learned
+    the default at startup — and the volume keys couldn't turn it down."""
+
+    DEVICES = [
+        {"name": "AB13X USB Audio", "max_output_channels": 2},
+        {"name": "MacBook Pro Microphone", "max_output_channels": 0},
+        {"name": "MacBook Pro Speakers", "max_output_channels": 2},
+    ]
+
+    def _wav(self, tmp_path):
+        import soundfile as sf
+        path = tmp_path / "x.wav"
+        sf.write(str(path), np.zeros(160, dtype="float32"), 16000)
+        return path
+
+    def _play(self, tmp_path, system_output, device=None, platform="darwin"):
+        """Play with macOS reporting `system_output` as its default; returns
+        (sd.play mock, Popen mock)."""
+        from voice.audio import playback
+        with patch.object(playback.sys, "platform", platform), \
+             patch.object(playback, "_macos_default_output_name", return_value=system_output), \
+             patch.object(playback.sd, "query_devices", return_value=self.DEVICES), \
+             patch.object(playback.shutil, "which", return_value="/usr/bin/afplay"), \
+             patch.object(playback.subprocess, "Popen") as popen, \
+             patch.object(playback.sd, "play") as sd_play, patch.object(playback.sd, "wait"):
+            playback.play_wav(self._wav(tmp_path), device=device)
+        return sd_play, popen
+
+    def test_plays_on_the_current_macos_output_not_portaudios_startup_default(self, tmp_path):
+        sd_play, popen = self._play(tmp_path, "AB13X USB Audio")
+        assert sd_play.call_args.kwargs["device"] == 0
+        popen.assert_not_called()
+
+    def test_follows_a_switch_back_to_the_speakers(self, tmp_path):
+        sd_play, _ = self._play(tmp_path, "MacBook Pro Speakers")
+        assert sd_play.call_args.kwargs["device"] == 2
+
+    def test_a_device_newer_than_portaudios_list_plays_through_afplay(self, tmp_path):
+        sd_play, popen = self._play(tmp_path, "AirPods Pro")
+        sd_play.assert_not_called()
+        assert popen.call_args.args[0][0] == "afplay"
+        popen.return_value.wait.assert_called_once()
+
+    def test_a_configured_device_is_used_as_is(self, tmp_path):
+        sd_play, popen = self._play(tmp_path, "AB13X USB Audio", device="MacBook Pro Speakers")
+        assert sd_play.call_args.kwargs["device"] == "MacBook Pro Speakers"
+        popen.assert_not_called()
+
+    def test_coreaudio_unknown_keeps_portaudios_default(self, tmp_path):
+        sd_play, popen = self._play(tmp_path, None)
+        assert sd_play.call_args.kwargs["device"] is None
+        popen.assert_not_called()
+
+    def test_off_macos_keeps_portaudios_default(self, tmp_path):
+        sd_play, popen = self._play(tmp_path, "AB13X USB Audio", platform="linux")
+        assert sd_play.call_args.kwargs["device"] is None
+        popen.assert_not_called()
+
+    def test_the_refresh_retry_looks_the_output_up_again(self, tmp_path):
+        """A PortAudio refresh can renumber devices, so the retry re-resolves."""
+        import sounddevice as sd
+        from voice.audio import playback
+        lists = [self.DEVICES, list(reversed(self.DEVICES))]
+        played = []
+
+        def play(data, sr, device=None):
+            played.append(device)
+            if len(played) == 1:
+                raise sd.PortAudioError("Internal PortAudio error", -9986)
+
+        with patch.object(playback.sys, "platform", "darwin"), \
+             patch.object(playback, "_macos_default_output_name", return_value="AB13X USB Audio"), \
+             patch.object(playback.sd, "query_devices", side_effect=lambda: lists.pop(0)), \
+             patch.object(playback.sd, "play", side_effect=play), patch.object(playback.sd, "wait"), \
+             patch.object(playback.sd, "_terminate"), patch.object(playback.sd, "_initialize"):
+            playback.play_wav(self._wav(tmp_path))
+        assert played == [0, 2]
+
+    def test_stop_cuts_off_afplay(self, tmp_path):
+        import threading
+        from voice.audio import playback
+        started, done = threading.Event(), threading.Event()
+
+        class FakeProc:
+            def __init__(self, *a, **k):
+                self.killed = threading.Event()
+            def wait(self):
+                started.set()
+                self.killed.wait(5)
+            def poll(self):
+                return 0 if self.killed.is_set() else None
+            def terminate(self):
+                self.killed.set()
+
+        with patch.object(playback.sys, "platform", "darwin"), \
+             patch.object(playback, "_macos_default_output_name", return_value="AirPods Pro"), \
+             patch.object(playback.sd, "query_devices", return_value=self.DEVICES), \
+             patch.object(playback.shutil, "which", return_value="/usr/bin/afplay"), \
+             patch.object(playback.subprocess, "Popen", FakeProc), patch.object(playback.sd, "stop"):
+            t = threading.Thread(target=lambda: (playback.play_wav(self._wav(tmp_path)), done.set()))
+            t.start()
+            assert started.wait(5)
+            playback.stop_playback()
+            assert done.wait(5)
+            t.join()
+        assert playback._afplay is None
+
+    def test_stop_with_nothing_playing_is_harmless(self):
+        from voice.audio import playback
+        with patch.object(playback.sd, "stop") as sd_stop:
+            playback.stop_playback()
+        sd_stop.assert_called_once()
+
+    @pytest.mark.skipif(sys.platform != "darwin", reason="CoreAudio is macOS-only")
+    def test_coreaudio_names_a_real_output_device(self):
+        import sounddevice as sd
+        from voice.audio import playback
+        name = playback._macos_default_output_name()
+        if name is None:
+            pytest.skip("no output device (headless)")
+        assert any(d["name"] == name for d in sd.query_devices())
