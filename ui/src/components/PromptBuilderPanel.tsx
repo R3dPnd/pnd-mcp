@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Banner, Button, Card, CopyButton, IconButton, Panel, Spinner, Tag, TextField } from 'pnd-lib-react'
+import type { Tone } from 'pnd-lib-react'
 import { api } from '../lib/api'
 
 interface Section {
@@ -25,10 +27,10 @@ const MODEL_LABELS: Record<string, string> = {
   'claude-haiku-4-5-20251001': 'Haiku 4.5',
 }
 
-const MODEL_COLORS: Record<string, string> = {
-  'claude-opus-4-6':           'text-neon-violet',
-  'claude-sonnet-4-6':         'text-neon-cyan',
-  'claude-haiku-4-5-20251001': 'text-neon-green',
+const MODEL_TONES: Record<string, Tone> = {
+  'claude-opus-4-6':           'violet',
+  'claude-sonnet-4-6':         'cyan',
+  'claude-haiku-4-5-20251001': 'green',
 }
 
 export function PromptBuilderPanel() {
@@ -36,7 +38,6 @@ export function PromptBuilderPanel() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<BuildResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
 
   const updateSection = (id: string, content: string) => {
     setSections(prev => prev.map(s => s.id === id ? { ...s, content } : s))
@@ -82,147 +83,91 @@ export function PromptBuilderPanel() {
     }
   }
 
-  const copyPrompt = () => {
-    if (!result) return
-    navigator.clipboard.writeText(result.prompt).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
   const reset = () => {
     setSections(DEFAULT_SECTIONS.map(s => ({ ...s, content: '' })))
     setResult(null)
     setError(null)
   }
 
-  return (
-    <div className="flex flex-col h-full text-xs">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
-        <span className="text-neon-violet font-bold tracking-widest uppercase text-[10px]">Prompt Builder</span>
-        {(result || error) && (
-          <button onClick={reset} className="text-zinc-600 hover:text-zinc-400 transition-colors text-[10px]">
-            reset
-          </button>
-        )}
-      </div>
+  const fixed = (id: string) => ['thoughts', 'goals', 'notes'].includes(id)
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Input sections */}
+  return (
+    <Panel title="Prompt Builder" className="pb">
+      {(result || error) && (
+        <div className="pb__bar">
+          <Button variant="link" onClick={reset}>reset</Button>
+        </div>
+      )}
+
+      <div className="pb__scroll">
         {!result && (
-          <div className="px-3 py-2 space-y-3">
+          <div className="pb__sections">
             {sections.map(section => (
-              <div key={section.id} className="space-y-1">
-                <div className="flex items-center justify-between">
-                  {['thoughts', 'goals', 'notes'].includes(section.id) ? (
-                    <span className="text-zinc-500 uppercase tracking-widest text-[10px]">{section.title}</span>
+              <div key={section.id} className="pb__section">
+                <div className="pb__section-head">
+                  {fixed(section.id) ? (
+                    <span className="pb__label">{section.title}</span>
                   ) : (
                     <input
+                      className="pb__title-input"
+                      aria-label="Section title"
                       value={section.title}
                       onChange={e => updateTitle(section.id, e.target.value)}
-                      className="text-zinc-500 uppercase tracking-widest text-[10px] bg-transparent border-b border-zinc-800 focus:border-violet-700 outline-none w-24"
                     />
                   )}
-                  {!['thoughts', 'goals', 'notes'].includes(section.id) && (
-                    <button
-                      onClick={() => removeSection(section.id)}
-                      className="text-zinc-700 hover:text-red-500 transition-colors"
-                    >
-                      <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+                  {!fixed(section.id) && (
+                    <IconButton label="Remove section" onClick={() => removeSection(section.id)}>
+                      <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden>
                         <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
-                    </button>
+                    </IconButton>
                   )}
                 </div>
-                <textarea
+                <TextField
                   value={section.content}
-                  onChange={e => updateSection(section.id, e.target.value)}
+                  onChange={v => updateSection(section.id, v)}
                   rows={3}
                   placeholder={`${section.title.toLowerCase()}…`}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1.5 text-zinc-200 placeholder-zinc-700 text-[11px] resize-none focus:border-violet-700 leading-relaxed"
                 />
               </div>
             ))}
 
-            <button
-              onClick={addSection}
-              className="text-zinc-700 hover:text-zinc-500 transition-colors text-[10px] flex items-center gap-1"
-            >
-              <span>+</span> add section
-            </button>
+            <Button variant="link" onClick={addSection}>+ add section</Button>
           </div>
         )}
 
-        {/* Result */}
         {result && (
-          <div className="px-3 py-2 space-y-3">
-            {/* Model recommendation */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded p-2.5 space-y-1.5">
-              <div className="text-zinc-600 text-[10px] uppercase tracking-widest">Recommended Model</div>
-              <div className={`font-bold text-sm ${MODEL_COLORS[result.recommended_model] ?? 'text-zinc-200'}`}>
-                {MODEL_LABELS[result.recommended_model] ?? result.recommended_model}
+          <div className="pb__sections">
+            <Card className="pb__card">
+              <div className="pb__label">Recommended Model</div>
+              <div className="pb__model">
+                <Tag tone={MODEL_TONES[result.recommended_model] ?? 'plain'}>
+                  {MODEL_LABELS[result.recommended_model] ?? result.recommended_model}
+                </Tag>
               </div>
-              <div className="text-zinc-500 text-[10px] leading-relaxed">{result.reasoning}</div>
-            </div>
+              <div className="pb__reasoning">{result.reasoning}</div>
+            </Card>
 
-            {/* Generated prompt */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded p-2.5 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-600 text-[10px] uppercase tracking-widest">Prompt</span>
-                <button
-                  onClick={copyPrompt}
-                  className="text-zinc-600 hover:text-cyan-400 transition-colors text-[10px] flex items-center gap-1"
-                >
-                  {copied ? (
-                    <span className="text-neon-green">copied!</span>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                        <rect x="4" y="1" width="7" height="8" rx="1" stroke="currentColor" strokeWidth="1"/>
-                        <path d="M1 4h3v7H8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-                      </svg>
-                      copy
-                    </>
-                  )}
-                </button>
+            <Card className="pb__card">
+              <div className="pb__section-head">
+                <span className="pb__label">Prompt</span>
+                <CopyButton text={result.prompt} label="copy" />
               </div>
-              <pre className="text-zinc-300 text-[11px] whitespace-pre-wrap leading-relaxed font-mono">
-                {result.prompt}
-              </pre>
-            </div>
+              <pre className="pb__prompt">{result.prompt}</pre>
+            </Card>
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="px-3 py-2">
-            <div className="bg-zinc-900 border border-red-900 rounded p-2.5 text-red-400 text-[11px]">
-              {error}
-            </div>
-          </div>
-        )}
+        {error && <Banner tone="error">{error}</Banner>}
       </div>
 
-      {/* Build button */}
       {!result && (
-        <div className="px-3 py-2 border-t border-zinc-800 shrink-0">
-          <button
-            onClick={build}
-            disabled={!hasContent || loading}
-            className="w-full py-1.5 rounded border transition-colors text-[11px] font-bold tracking-widest uppercase disabled:opacity-30 disabled:cursor-not-allowed bg-zinc-900 border-violet-800 text-violet-300 hover:bg-violet-900/30 hover:border-violet-600 hover:text-neon-violet"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 12 12" fill="none">
-                  <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5" strokeDasharray="10 20" strokeLinecap="round"/>
-                </svg>
-                Building…
-              </span>
-            ) : 'Build Prompt'}
-          </button>
+        <div className="pb__build">
+          <Button variant="primary" onClick={build} disabled={!hasContent || loading}>
+            {loading ? (<><Spinner /> Building…</>) : 'Build Prompt'}
+          </Button>
         </div>
       )}
-    </div>
+    </Panel>
   )
 }

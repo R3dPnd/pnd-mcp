@@ -1,12 +1,13 @@
 import { useState } from 'react'
+import { Banner, Button, Card, EmptyState, Tag } from 'pnd-lib-react'
 import type { Module } from '../types'
 import { useDannStore } from '../hooks/useDannState'
 import { api } from '../lib/api'
 
-function statusBadge(mod: Module): { label: string; className: string } {
-  if (mod.always_on) return { label: 'Always on', className: 'bg-zinc-800 text-zinc-400' }
-  if (mod.enabled) return { label: 'Active', className: 'bg-blue-950/40 text-blue-300' }
-  return { label: 'Available', className: 'bg-zinc-900 text-zinc-500' }
+function statusBadge(mod: Module): { label: string; tone: 'muted' | 'blue' } {
+  if (mod.always_on) return { label: 'Always on', tone: 'muted' }
+  if (mod.enabled) return { label: 'Active', tone: 'blue' }
+  return { label: 'Available', tone: 'muted' }
 }
 
 function ModuleCard({ mod }: { mod: Module }) {
@@ -34,46 +35,28 @@ function ModuleCard({ mod }: { mod: Module }) {
   }
 
   return (
-    <div
-      className={`rounded-lg border transition-colors ${
-        mod.enabled ? 'border-blue-900/60 bg-blue-950/10' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
-      }`}
-    >
-      <div className="flex items-center gap-3 px-4 py-3">
-        <span
-          className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${
-            mod.enabled ? 'bg-blue-400 pulse-dot' : 'bg-zinc-700'
-          }`}
-        />
+    <Card className={`mod-card${mod.enabled ? ' is-on' : ''}`}>
+      <div className="mod-card__row">
+        <span className={`mod-card__dot${mod.enabled ? ' is-on pulse-dot' : ''}`} />
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-zinc-100">{mod.name}</p>
-          <p className="truncate text-xs text-zinc-500" title={mod.description}>
+        <div className="mod-card__main">
+          <span className="mod-card__name">{mod.name}</span>
+          <span className="mod-card__desc" title={mod.description}>
             {mod.description}
-          </p>
+          </span>
         </div>
 
-        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs ${badge.className}`}>
-          {badge.label}
-        </span>
+        <Tag tone={badge.tone}>{badge.label}</Tag>
 
         {!mod.always_on && (
-          <button
-            onClick={toggle}
-            disabled={pending}
-            className={`flex-shrink-0 rounded px-2 py-1 text-xs transition-colors disabled:opacity-40 ${
-              mod.enabled
-                ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                : 'bg-blue-900/40 text-blue-300 hover:bg-blue-900/60'
-            }`}
-          >
+          <Button variant={mod.enabled ? 'ghost' : 'primary'} onClick={toggle} disabled={pending}>
             {pending ? '…' : mod.enabled ? 'Stop' : 'Start'}
-          </button>
+          </Button>
         )}
       </div>
 
-      {error && <p className="px-4 pb-2 text-[11px] text-neon-red">{error}</p>}
-    </div>
+      {error && <Banner tone="error">{error}</Banner>}
+    </Card>
   )
 }
 
@@ -83,16 +66,17 @@ export function ModulesPanel() {
 
   if (modules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
-        <p className="text-sm">No modules configured.</p>
-        <p className="mt-1 text-xs">Modules are listed under mcp.servers in config.yaml.</p>
-      </div>
+      <EmptyState center>
+        No modules configured.
+        <br />
+        Modules are listed under mcp.servers in config.yaml.
+      </EmptyState>
     )
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-zinc-500">
+    <div className="content-list">
+      <p className="content-intro">
         Optional modules start on demand — {personaName} enables one itself the first time a turn needs it,
         or start one here yourself.
       </p>

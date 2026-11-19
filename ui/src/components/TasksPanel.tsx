@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Button, Checkbox, EmptyState, IconButton, Panel, TextInput } from 'pnd-lib-react'
 
 interface Task {
   id: string
@@ -27,7 +28,7 @@ export function TasksPanel() {
   const [newText, setNewText] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     saveTasks(tasks)
@@ -38,7 +39,7 @@ export function TasksPanel() {
     if (!text) return
     setTasks(prev => [...prev, { id: crypto.randomUUID(), text, done: false, createdAt: Date.now() }])
     setNewText('')
-    inputRef.current?.focus()
+    inputRef.current?.querySelector('input')?.focus()
   }
 
   const toggleTask = (id: string) => {
@@ -71,45 +72,25 @@ export function TasksPanel() {
   const done = tasks.filter(t => t.done)
 
   return (
-    <div className="flex flex-col h-full text-xs">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 shrink-0">
-        <span className="text-neon-cyan font-bold tracking-widest uppercase text-[10px]">Tasks</span>
-        {done.length > 0 && (
-          <button
-            onClick={clearDone}
-            className="text-zinc-600 hover:text-zinc-400 transition-colors text-[10px]"
-          >
-            clear done
-          </button>
-        )}
-      </div>
-
-      {/* Add task */}
-      <div className="flex gap-1.5 px-3 py-2 border-b border-zinc-800 shrink-0">
-        <input
-          ref={inputRef}
+    <Panel title="Tasks" className="tasks">
+      <div className="tasks__add">
+        <div ref={inputRef} className="tasks__input">
+        <TextInput
           value={newText}
-          onChange={e => setNewText(e.target.value)}
+          onChange={setNewText}
           onKeyDown={e => { if (e.key === 'Enter') addTask() }}
           placeholder="new task…"
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-zinc-200 placeholder-zinc-700 text-[11px] focus:border-cyan-700"
         />
-        <button
-          onClick={addTask}
-          className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded text-zinc-300 transition-colors"
-        >
-          +
-        </button>
+        </div>
+        <Button onClick={addTask} aria-label="Add task">+</Button>
+        {done.length > 0 && (
+          <Button variant="link" onClick={clearDone}>clear done</Button>
+        )}
       </div>
 
-      {/* Task list */}
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-        {tasks.length === 0 && (
-          <p className="text-zinc-700 text-center mt-6 text-[10px]">no tasks yet</p>
-        )}
+      <div className="tasks__list">
+        {tasks.length === 0 && <EmptyState center>no tasks yet</EmptyState>}
 
-        {/* Pending */}
         {pending.map(task => (
           <TaskRow
             key={task.id}
@@ -124,12 +105,9 @@ export function TasksPanel() {
           />
         ))}
 
-        {/* Done */}
         {done.length > 0 && (
           <>
-            <div className="pt-2 pb-1">
-              <span className="text-zinc-700 text-[10px] uppercase tracking-widest">Done</span>
-            </div>
+            <div className="tasks__done-head">Done</div>
             {done.map(task => (
               <TaskRow
                 key={task.id}
@@ -147,11 +125,10 @@ export function TasksPanel() {
         )}
       </div>
 
-      {/* Footer count */}
-      <div className="px-3 py-1.5 border-t border-zinc-800 shrink-0 text-zinc-700 text-[10px]">
+      <div className="tasks__foot">
         {pending.length} remaining · {done.length} done
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -168,55 +145,40 @@ interface TaskRowProps {
 
 function TaskRow({ task, isEditing, editText, onEditTextChange, onToggle, onStartEdit, onCommitEdit, onDelete }: TaskRowProps) {
   return (
-    <div className="group flex items-start gap-2 py-1">
-      <button
-        onClick={onToggle}
-        className={`mt-0.5 w-3.5 h-3.5 shrink-0 border rounded-sm transition-colors flex items-center justify-center ${
-          task.done
-            ? 'border-cyan-700 bg-cyan-900/40 text-cyan-400'
-            : 'border-zinc-700 bg-transparent hover:border-cyan-700'
-        }`}
-      >
-        {task.done && (
-          <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none">
-            <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        )}
-      </button>
+    <div className="task-row">
+      <Checkbox checked={task.done} onChange={onToggle}>
+        <span className="vh">{task.done ? 'Mark not done' : 'Mark done'}: {task.text}</span>
+      </Checkbox>
 
       {isEditing ? (
         <input
           autoFocus
+          className="task-row__edit"
+          aria-label="Edit task"
           value={editText}
           onChange={e => onEditTextChange(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') onCommitEdit() }}
           onBlur={onCommitEdit}
-          className="flex-1 bg-zinc-900 border border-cyan-700 rounded px-1.5 py-0.5 text-zinc-200 text-[11px]"
         />
       ) : (
-        <span
-          onDoubleClick={onStartEdit}
-          className={`flex-1 leading-snug cursor-default select-none ${
-            task.done ? 'line-through text-zinc-600' : 'text-zinc-300'
-          }`}
-        >
+        <span onDoubleClick={onStartEdit} className={`task-row__text${task.done ? ' is-done' : ''}`}>
           {task.text}
         </span>
       )}
 
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="task-row__actions">
         {!isEditing && (
-          <button onClick={onStartEdit} className="text-zinc-600 hover:text-zinc-400 transition-colors">
-            <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+          <IconButton label="Edit task" onClick={onStartEdit}>
+            <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden>
               <path d="M2 8.5L8.5 2 10 3.5 3.5 10H2V8.5Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-          </button>
+          </IconButton>
         )}
-        <button onClick={onDelete} className="text-zinc-700 hover:text-red-500 transition-colors">
-          <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
+        <IconButton label="Delete task" onClick={onDelete}>
+          <svg viewBox="0 0 12 12" width="12" height="12" fill="none" aria-hidden>
             <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
-        </button>
+        </IconButton>
       </div>
     </div>
   )

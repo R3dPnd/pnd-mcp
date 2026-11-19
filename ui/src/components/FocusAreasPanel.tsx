@@ -1,44 +1,30 @@
 import { useEffect, useState } from 'react'
+import { Banner, Button, Card, EmptyState, IconButton, Tag, TextField, TextInput, relTime } from 'pnd-lib-react'
 import type { FocusArea, FocusAreaNote } from '../types'
 import { useDannStore } from '../hooks/useDannState'
 import { api } from '../lib/api'
-
-function relTime(sec: number): string {
-  const diff = Date.now() / 1000 - sec
-  if (diff < 60) return `${Math.floor(diff)}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return new Date(sec * 1000).toLocaleDateString()
-}
 
 function NoteCard({ note, onDelete }: { note: FocusAreaNote; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const long = note.content.length > 140 || note.content.includes('\n')
 
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-950 px-3 py-2">
-      <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={() => long && setExpanded((v) => !v)}
-          className={`min-w-0 flex-1 text-left ${long ? 'cursor-pointer' : 'cursor-default'}`}
-        >
-          <p className="truncate text-xs font-medium text-zinc-200">{note.title}</p>
-          <p className={`text-[11px] text-zinc-500 ${expanded ? 'whitespace-pre-wrap' : 'truncate'}`}>
-            {note.content}
-          </p>
-        </button>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[10px] text-zinc-600">{relTime(note.modified_at)}</span>
-          <button
-            onClick={onDelete}
-            className="text-zinc-700 hover:text-neon-red"
-            title="Delete note"
-          >
-            ×
-          </button>
-        </div>
+    <Card className="fa-note">
+      <button
+        type="button"
+        onClick={() => long && setExpanded((v) => !v)}
+        className={`fa-note__body${long ? ' is-long' : ''}${expanded ? ' is-expanded' : ''}`}
+      >
+        <span className="fa-note__title">{note.title}</span>
+        <span className="fa-note__text">{note.content}</span>
+      </button>
+      <div className="fa-note__side">
+        <span className="fa-note__time">{relTime(note.modified_at * 1000)}</span>
+        <IconButton label="Delete note" title="Delete note" onClick={onDelete}>
+          ×
+        </IconButton>
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -60,28 +46,18 @@ function AddNoteForm({ onAdd }: { onAdd: (title: string, content: string) => Pro
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded border border-zinc-800 bg-zinc-950 p-2">
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Optional title"
-        className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-600"
-      />
-      <textarea
+    <Card className="fa-add">
+      <TextInput value={title} onChange={setTitle} placeholder="Optional title" />
+      <TextField
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={setContent}
         placeholder="Note content — remembered in every future conversation about this focus area"
         rows={2}
-        className="resize-none rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 placeholder:text-zinc-600"
       />
-      <button
-        onClick={submit}
-        disabled={!content.trim() || saving}
-        className="self-end rounded bg-teal-900/40 px-2 py-1 text-xs text-teal-300 hover:bg-teal-900/60 disabled:opacity-40"
-      >
+      <Button variant="primary" onClick={submit} disabled={!content.trim() || saving}>
         {saving ? 'Saving…' : 'Add note'}
-      </button>
-    </div>
+      </Button>
+    </Card>
   )
 }
 
@@ -118,44 +94,38 @@ function FocusAreaCard({ area }: { area: FocusArea }) {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900 hover:border-zinc-700 transition-colors">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-zinc-100">{area.name}</p>
-          <p className="text-xs text-zinc-500">{area.description}</p>
-        </div>
+    <Card className="fa-card">
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="fa-card__head" aria-expanded={expanded}>
+        <span className="fa-card__main">
+          <span className="fa-card__name">{area.name}</span>
+          <span className="fa-card__desc">{area.description}</span>
+        </span>
 
         {area.module && (
-          <span
-            className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs ${
-              area.module_enabled ? 'bg-blue-950/40 text-blue-300' : 'bg-zinc-800 text-zinc-500'
-            }`}
-            title={`Backed by the '${area.module}' module`}
-          >
-            {area.module_enabled ? `${area.module} active` : area.module}
+          <span className="fa-card__tag" title={`Backed by the '${area.module}' module`}>
+            <Tag tone={area.module_enabled ? 'blue' : 'muted'}>
+              {area.module_enabled ? `${area.module} active` : area.module}
+            </Tag>
           </span>
         )}
 
         <svg
-          className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          className={`fa-card__chev${expanded ? ' is-open' : ''}`}
+          width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {expanded && (
-        <div className="flex flex-col gap-2 border-t border-zinc-800 px-4 py-3">
-          {error && <p className="text-[11px] text-neon-red">{error}</p>}
+        <div className="fa-card__body">
+          {error && <Banner tone="error">{error}</Banner>}
           {notes === null ? (
-            <p className="text-xs text-zinc-600">Loading notes…</p>
+            <EmptyState>Loading notes…</EmptyState>
           ) : notes.length === 0 ? (
-            <p className="text-xs text-zinc-600">No notes yet.</p>
+            <EmptyState>No notes yet.</EmptyState>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="fa-notes">
               {notes.map((note) => (
                 <NoteCard key={note.filename} note={note} onDelete={() => handleDelete(note.filename)} />
               ))}
@@ -164,7 +134,7 @@ function FocusAreaCard({ area }: { area: FocusArea }) {
           <AddNoteForm onAdd={handleAdd} />
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -174,16 +144,17 @@ export function FocusAreasPanel() {
 
   if (focusAreas.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
-        <p className="text-sm">No focus areas configured.</p>
-        <p className="mt-1 text-xs">Add entries under focus_areas in config.yaml.</p>
-      </div>
+      <EmptyState center>
+        No focus areas configured.
+        <br />
+        Add entries under focus_areas in config.yaml.
+      </EmptyState>
     )
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-xs text-zinc-500">
+    <div className="content-list">
+      <p className="content-intro">
         Topics {personaName} leans into — asks follow-ups on, connects new information to. A module badge
         means real data backs it; without one, it's just something {personaName} knows you care about.
         Click a card to see or add its saved notes — permanent context included in every future
