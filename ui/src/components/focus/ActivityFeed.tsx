@@ -12,42 +12,42 @@ export function ActivityFeed() {
   const lastTurn = voiceTurns[voiceTurns.length - 1]
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-xl px-4">
-      <div className="flex items-center gap-2 text-[10px] tracking-widest uppercase text-zinc-500">
-        <span>Mode: <span className="text-zinc-300">{mode}</span></span>
+    <div className="activity">
+      <div className="activity__meta">
+        <span>Mode: <span className="activity__val">{mode}</span></span>
         {project && (
           <>
-            <span className="text-zinc-700">|</span>
-            <span>Project: <span className="text-zinc-300">{project}</span></span>
+            <span className="activity__sep">|</span>
+            <span>Project: <span className="activity__val">{project}</span></span>
           </>
         )}
       </div>
 
       {(pendingStt || liveResponse) && (
-        <div className="flex flex-col items-center gap-1.5 text-center">
+        <div className="activity__turn">
           {pendingStt && (
-            <p className="text-sm text-zinc-400">"{pendingStt}"</p>
+            <p className="activity__user">"{pendingStt}"</p>
           )}
           {liveResponse && (
-            <p className="text-base text-zinc-100">
+            <p className="activity__reply">
               {liveResponse}
-              <span className="inline-block ml-0.5 animate-pulse text-teal-400">▋</span>
+              <span className="activity__caret">▋</span>
             </p>
           )}
         </div>
       )}
 
       {!pendingStt && !liveResponse && lastTurn && (
-        <div className="flex flex-col items-center gap-1.5 text-center opacity-70">
-          {lastTurn.userText && <p className="text-sm text-zinc-500">"{lastTurn.userText}"</p>}
-          {lastTurn.dannText && <p className="text-base text-zinc-300">{lastTurn.dannText}</p>}
+        <div className="activity__turn activity__turn--past">
+          {lastTurn.userText && <p className="activity__user">"{lastTurn.userText}"</p>}
+          {lastTurn.dannText && <p className="activity__reply">{lastTurn.dannText}</p>}
         </div>
       )}
 
       {lastTurn?.trace && <TraceBar trace={lastTurn.trace} />}
 
       {!lastTurn && !pendingStt && !liveResponse && (
-        <p className="text-xs text-zinc-700">No activity yet — say "{wakePhrase}" to begin.</p>
+        <p className="activity__hint">No activity yet — say "{wakePhrase}" to begin.</p>
       )}
     </div>
   )

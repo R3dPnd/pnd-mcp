@@ -1,62 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Button, Checkbox, EmptyState, Select, TextInput, relTime } from 'pnd-lib-react'
 import { useDannStore } from '../hooks/useDannState'
 import type { LogEntry } from '../types'
 
-const LEVEL_COLORS: Record<string, string> = {
-  DEBUG: 'text-gray-400 bg-gray-700',
-  INFO: 'text-blue-300 bg-blue-900',
-  WARNING: 'text-yellow-300 bg-yellow-900',
-  ERROR: 'text-red-300 bg-red-900',
-  CRITICAL: 'text-pink-300 bg-pink-900',
-}
-
 const LEVEL_ORDER = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-
-function relTime(iso: string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000
-  if (diff < 60) return `${Math.floor(diff)}s ago`
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  return `${Math.floor(diff / 3600)}h ago`
-}
 
 function LogRow({ entry }: { entry: LogEntry }) {
   const [expanded, setExpanded] = useState(false)
+  const level = LEVEL_ORDER.includes(entry.level) ? entry.level.toLowerCase() : 'debug'
 
   return (
     <div
-      className="group border-b border-gray-800 px-3 py-1.5 text-xs cursor-pointer hover:bg-gray-800/50"
+      className="log-row"
       onClick={() => entry.detail && setExpanded(e => !e)}
     >
-      <div className="flex items-start gap-2">
-        {/* Timestamp */}
-        <span
-          className="text-gray-500 whitespace-nowrap shrink-0"
-          title={entry.timestamp}
-        >
+      <div className="log-row__line">
+        <span className="log-row__time" title={entry.timestamp}>
           {relTime(entry.timestamp)}
         </span>
-
-        {/* Level badge */}
-        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${LEVEL_COLORS[entry.level] ?? LEVEL_COLORS.DEBUG}`}>
-          {entry.level}
-        </span>
-
-        {/* Module tag */}
-        <span className="text-gray-500 shrink-0 font-mono">{entry.module}</span>
-
-        {/* Message */}
-        <span className="text-gray-200 break-all">{entry.message}</span>
-
-        {/* Expand indicator */}
+        <span className={`log-level log-level--${level}`}>{entry.level}</span>
+        <span className="log-row__module">{entry.module}</span>
+        <span className="log-row__msg">{entry.message}</span>
         {entry.detail && (
-          <span className="ml-auto text-gray-600 shrink-0">{expanded ? '▲' : '▼'}</span>
+          <span className="log-row__chevron">{expanded ? '▲' : '▼'}</span>
         )}
       </div>
 
       {expanded && entry.detail && (
-        <pre className="mt-1.5 text-[11px] text-red-300 bg-gray-900 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-          {entry.detail}
-        </pre>
+        <pre className="log-row__detail">{entry.detail}</pre>
       )}
     </div>
   )
@@ -112,87 +83,58 @@ export default function LogPanel() {
   }, [filtered])
 
   return (
-    <div className="log-panel bg-gray-900 flex flex-col">
+    <div className="log-panel">
       {/* Header tab */}
-      <button
-        onClick={handleOpen}
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors w-full text-left"
-      >
+      <button onClick={handleOpen} className="log-head">
         <span>Logs</span>
-        {unreadErrors > 0 && (
-          <span className="bg-red-600 text-white rounded-full px-1.5 py-0.5 text-[10px] font-bold">
-            {unreadErrors}
-          </span>
-        )}
-        <span className="ml-auto text-gray-500">{open ? '▼' : '▲'}</span>
+        {unreadErrors > 0 && <span className="log-head__unread">{unreadErrors}</span>}
+        <span className="log-head__chevron">{open ? '▼' : '▲'}</span>
       </button>
 
       {open && (
         <>
           {/* Filter bar */}
-          <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900">
+          <div className="log-filters">
             {/* Level slider */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">Level:</span>
+            <div className="log-filters__level">
+              <span className="log-filters__label">Level:</span>
               <input
                 type="range"
                 min={0}
                 max={4}
                 value={minLevel}
                 onChange={e => setMinLevel(Number(e.target.value))}
-                className="w-20 accent-blue-500"
                 disabled={errorsOnly}
+                aria-label="Minimum log level"
               />
-              <span className="text-xs text-gray-300 w-16">{LEVEL_ORDER[minLevel]}</span>
+              <span className="log-filters__value">{LEVEL_ORDER[minLevel]}</span>
             </div>
 
             {/* Module select */}
             {modules.length > 0 && (
-              <select
+              <Select
                 value={moduleFilter}
-                onChange={e => setModuleFilter(e.target.value)}
-                className="text-xs bg-gray-800 text-gray-200 border border-gray-700 rounded px-2 py-0.5"
-              >
-                <option value="">All modules</option>
-                {modules.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+                onChange={setModuleFilter}
+                options={[{ value: '', label: 'All modules' }, ...modules.map(m => ({ value: m, label: m }))]}
+              />
             )}
 
             {/* Search */}
-            <input
-              type="text"
-              placeholder="Search…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="text-xs bg-gray-800 text-gray-200 border border-gray-700 rounded px-2 py-0.5 w-40"
-            />
+            <TextInput placeholder="Search…" value={search} onChange={setSearch} />
 
             {/* Errors only toggle */}
-            <label className="flex items-center gap-1 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={errorsOnly}
-                onChange={e => setErrorsOnly(e.target.checked)}
-                className="accent-red-500"
-              />
-              Errors only
-            </label>
+            <Checkbox checked={errorsOnly} onChange={setErrorsOnly}>Errors only</Checkbox>
 
-            <span className="text-xs text-gray-500 ml-auto">{filtered.length} entries</span>
+            <span className="log-filters__count">{filtered.length} entries</span>
 
             {/* Download */}
-            <button
-              onClick={downloadLog}
-              className="text-xs text-blue-400 hover:text-blue-300 px-2 py-0.5 border border-gray-700 rounded"
-            >
-              Download
-            </button>
+            <Button variant="link" onClick={downloadLog}>Download</Button>
           </div>
 
           {/* Log entries */}
-          <div className="overflow-y-auto" style={{ maxHeight: 280 }}>
+          <div className="log-entries">
             {filtered.length === 0 ? (
-              <div className="text-center text-gray-500 py-6 text-xs">No log entries match the current filters.</div>
+              <EmptyState center>No log entries match the current filters.</EmptyState>
             ) : (
               filtered.map((entry, i) => <LogRow key={i} entry={entry} />)
             )}

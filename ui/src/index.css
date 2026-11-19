@@ -36,24 +36,10 @@ header.status-bar {
   box-shadow: 0 1px 16px rgb(var(--pnd-accent-600) / 0.125);
 }
 
-/* Metrics bar — orange */
-.metrics-bar {
-  border-bottom: 1px solid #ff990044;
-  box-shadow: 0 1px 12px #ff990018;
-}
-.metrics-bar .metrics-label { color: #ff9900; text-shadow: 0 0 8px #ff990088; }
-.metrics-bar .stat-value     { color: #ffbb55; }
-
 /* Projects panel — blue active card glow */
 .border-blue-600 {
   border-color: rgb(var(--pnd-accent-500)) !important;
   box-shadow: 0 0 12px rgb(var(--pnd-accent-600) / 0.267), inset 0 0 8px rgb(var(--pnd-accent-600) / 0.039);
-}
-
-/* Log panel — red top border */
-.log-panel {
-  border-top: 1px solid #ff337744;
-  box-shadow: 0 -1px 12px #ff337718;
 }
 
 /* Listening pill — green glow */
@@ -101,7 +87,3 @@ header.status-bar {
   99%            { opacity: 1; }
 }
 
-/* Chart tooltips */
-.recharts-tooltip-wrapper {
-  font-size: 11px !important;
-}

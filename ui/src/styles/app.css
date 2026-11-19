@@ -328,3 +328,74 @@
 .pb__prompt { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
 .pb__build { padding-top: 8px; border-top: 1px solid var(--line); }
 .pb__build .btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* ── Data panels: SystemPanel, MetricsPage ───────────────────────────────── */
+.data-page { padding: 16px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+.data-cols { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+@media (min-width: 768px) {
+  .data-cols--4 { grid-template-columns: repeat(4, 1fr); }
+  .data-cols--5 { grid-template-columns: repeat(5, 1fr); }
+}
+:root[data-theme="glass"] .card.data-stat { padding: 12px; text-align: center; }
+:root[data-theme="glass"] .card.data-stat--left { text-align: left; }
+:root[data-theme="glass"] .card.data-stat--center { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.data-stat__value { font-size: 18px; font-weight: 700; color: var(--ink); }
+.data-stat__value--lg { font-size: 24px; }
+.data-stat__label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.data-stat--left .data-stat__label { margin-top: 0; }
+.data-stat__hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.data-stat__model { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recharts-tooltip-wrapper { font-size: 11px; }
+
+/* ── LogPanel ────────────────────────────────────────────────────────────── */
+.log-panel { display: flex; flex-direction: column; background: var(--surface-bar); border-top: 1px solid var(--line); backdrop-filter: blur(var(--blur)); }
+.log-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 500; text-align: left; color: var(--ink); background: none; border: 0; cursor: pointer; }
+.log-head:hover { background: var(--panel-2); }
+.log-head__unread { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); }
+.log-head__chevron { margin-left: auto; color: var(--muted); }
+.log-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.log-filters__level { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.log-filters__level input[type="range"] { width: 80px; accent-color: var(--accent-2); }
+.log-filters__label { color: var(--muted); }
+.log-filters__value { width: 64px; color: var(--ink); }
+.log-filters__count { margin-left: auto; font-size: 12px; color: var(--muted); }
+:root[data-theme="glass"] .log-filters .control input,
+:root[data-theme="glass"] .log-filters .control select { padding: 3px 8px; font-size: 12px; }
+:root[data-theme="glass"] .log-filters .checkbox { font-size: 12px; }
+.log-entries { overflow-y: auto; max-height: 280px; }
+.log-row { padding: 6px 12px; font-family: var(--mono); font-size: 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.log-row:hover { background: var(--panel-2); }
+.log-row__line { display: flex; align-items: flex-start; gap: 8px; }
+.log-row__time { flex-shrink: 0; white-space: nowrap; color: var(--muted); }
+.log-row__module { flex-shrink: 0; color: var(--muted); }
+.log-row__msg { color: var(--ink); overflow-wrap: anywhere; }
+.log-row__chevron { margin-left: auto; flex-shrink: 0; color: var(--muted); }
+.log-row__detail { margin: 6px 0 0; padding: 8px; font-family: var(--mono); font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: auto; color: var(--red-ink); background: var(--well); border-radius: var(--radius-sm); }
+.log-level { flex-shrink: 0; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.log-level--debug { color: var(--muted); background: var(--well); }
+.log-level--info { color: var(--blue); background: color-mix(in srgb, var(--blue) 16%, transparent); }
+.log-level--warning { color: var(--orange); background: var(--orange-bg); }
+.log-level--error { color: var(--red); background: var(--red-bg); }
+.log-level--critical { color: var(--magenta); background: color-mix(in srgb, var(--magenta) 18%, transparent); }
+
+/* ── Focus: ActivityFeed, DevTeamJobs ────────────────────────────────────── */
+.activity { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 36rem; padding: 0 16px; }
+.activity__meta { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.activity__val { color: var(--ink); }
+.activity__sep { opacity: .5; }
+.activity__turn { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.activity__turn--past { opacity: .7; }
+.activity__user { margin: 0; font-size: 14px; color: var(--muted); }
+.activity__reply { margin: 0; font-size: 16px; color: var(--ink); }
+.activity__caret { display: inline-block; margin-left: 2px; color: var(--accent); animation: status-bar-pulse 1.5s ease-in-out infinite; }
+.activity__hint { margin: 0; font-size: 12px; color: var(--muted); }
+.devjobs { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 36rem; padding: 0 16px; }
+.devjobs__title { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.devjobs__row { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; font-size: 11px; border-bottom: 1px solid var(--line); }
+.devjobs__project { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.devjobs__task { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.devjobs__time { flex-shrink: 0; color: var(--muted); }
+/* Job statuses the library badge doesn't know: same look as its error / stopped / idle. */
+:root[data-theme="glass"] .status--failed { --edge: var(--red); color: var(--red); }
+:root[data-theme="glass"] .status--timed_out { --edge: var(--orange); color: var(--orange); }
+:root[data-theme="glass"] .status--killed { color: var(--muted); }

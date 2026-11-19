@@ -10,7 +10,9 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { Card, EmptyState, Meter, Panel } from 'pnd-lib-react'
 import { api } from '../lib/api'
+import { chartColors, chartTooltip } from './MetricsPage'
 import type { ResourceStatus, TurnRecord } from '../types'
 
 const POLL_MS = 3000
@@ -34,21 +36,10 @@ function timeUntil(iso: string): string {
 // ── Gauge card ─────────────────────────────────────────────────────────────────
 
 function GaugeCard({ label, percent, sub }: { label: string; percent: number; sub?: string }) {
-  const color = percent >= 90 ? '#ef4444' : percent >= 70 ? '#f59e0b' : '#22c55e'
   return (
-    <div className="bg-gray-800 rounded-lg p-3">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-gray-400">{label}</span>
-        <span className="text-lg font-bold text-white">{percent.toFixed(0)}%</span>
-      </div>
-      <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${Math.min(100, percent)}%`, backgroundColor: color }}
-        />
-      </div>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
-    </div>
+    <Card className="data-stat data-stat--left">
+      <Meter label={label} percent={percent} sub={sub} />
+    </Card>
   )
 }
 
@@ -78,10 +69,10 @@ export default function SystemPanel() {
   }, [])
 
   if (error && !status) {
-    return <div className="p-4 text-center text-gray-500 py-12">{error}</div>
+    return <EmptyState center>{error}</EmptyState>
   }
   if (!status) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">Loading system status…</div>
+    return <EmptyState center>Loading system status…</EmptyState>
   }
 
   const { memory, cpu, gpu, ollama, turns: turnStats } = status
@@ -95,15 +86,13 @@ export default function SystemPanel() {
     chat: t.latency_ms ?? null,
   }))
 
-  const tooltipStyle = {
-    contentStyle: { backgroundColor: '#1f2937', border: 'none', borderRadius: 6 },
-    labelStyle: { color: '#e5e7eb' },
-  }
+  const colors = chartColors()
+  const tooltipStyle = chartTooltip(colors)
 
   return (
-    <div className="p-4 space-y-6 overflow-y-auto">
+    <div className="data-page">
       {/* Top gauges */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="data-cols data-cols--4">
         <GaugeCard
           label="Memory"
           percent={memory.percent}
@@ -121,47 +110,46 @@ export default function SystemPanel() {
             sub={`${gpu.gpus[0].name} — ${formatBytes(gpu.gpus[0].memory_used_mb * 1024 * 1024)} / ${formatBytes(gpu.gpus[0].memory_total_mb * 1024 * 1024)}`}
           />
         ) : (
-          <div className="bg-gray-800 rounded-lg p-3 flex flex-col justify-center items-center text-center">
-            <span className="text-xs text-gray-400">GPU</span>
-            <span className="text-xs text-gray-500 mt-1">Not available on this machine</span>
-          </div>
+          <Card className="data-stat data-stat--center">
+            <span className="data-stat__label">GPU</span>
+            <span className="data-stat__hint">Not available on this machine</span>
+          </Card>
         )}
-        <div className="bg-gray-800 rounded-lg p-3">
-          <span className="text-xs text-gray-400">Ollama</span>
+        <Card className="data-stat data-stat--left">
+          <span className="data-stat__label">Ollama</span>
           {model ? (
             <>
-              <div className="text-sm font-semibold text-white mt-1 truncate" title={model.name}>{model.name}</div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="data-stat__model" title={model.name}>{model.name}</div>
+              <div className="data-stat__hint">
                 {formatBytes(model.size)} resident · unloads in {timeUntil(model.expires_at)}
               </div>
             </>
           ) : (
-            <div className="text-xs text-gray-500 mt-1">No model currently loaded</div>
+            <div className="data-stat__hint">No model currently loaded</div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Per-core CPU */}
       {cpu.per_core_percent.length > 1 && (
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Per-core CPU</h3>
+        <Panel title="Per-core CPU">
           <ResponsiveContainer width="100%" height={120}>
             <BarChart
               data={cpu.per_core_percent.map((p, i) => ({ core: `${i}`, percent: p }))}
               margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="core" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#9ca3af' }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+              <XAxis dataKey="core" tick={{ fontSize: 10, fill: colors.axis }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: colors.axis }} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v.toFixed(0)}%`, 'Load']} />
-              <Bar dataKey="percent" fill="rgb(var(--pnd-accent-500))" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="percent" fill={colors.accent} radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </Panel>
       )}
 
       {/* Turn latency averages */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="data-cols data-cols--5">
         {[
           { label: 'STT', value: turnStats.avg_stt_ms },
           { label: 'LLM', value: turnStats.avg_llm_ms },
@@ -169,36 +157,33 @@ export default function SystemPanel() {
           { label: 'Claude', value: turnStats.avg_code_ms },
           { label: 'Chat', value: turnStats.avg_chat_latency_ms },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-gray-800 rounded-lg p-3 text-center">
-            <div className="text-lg font-bold text-white">{formatMs(value)}</div>
-            <div className="text-xs text-gray-400 mt-1">avg {label}</div>
-          </div>
+          <Card key={label} className="data-stat">
+            <div className="data-stat__value">{formatMs(value)}</div>
+            <div className="data-stat__label">avg {label}</div>
+          </Card>
         ))}
       </div>
 
       {/* Latency over recent turns */}
       {latencyData.length > 1 && (
-        <div className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">
-            Latency — last {latencyData.length} turns ({turnStats.sample_count} in buffer)
-          </h3>
+        <Panel title={`Latency — last ${latencyData.length} turns (${turnStats.sample_count} in buffer)`}>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={latencyData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="index" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} unit="ms" />
+              <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+              <XAxis dataKey="index" tick={{ fontSize: 10, fill: colors.axis }} />
+              <YAxis tick={{ fontSize: 10, fill: colors.axis }} unit="ms" />
               <Tooltip {...tooltipStyle} />
-              <Line type="monotone" dataKey="stt" name="STT" stroke="rgb(var(--pnd-accent-500))" dot={false} connectNulls />
-              <Line type="monotone" dataKey="llm" name="LLM" stroke="#22c55e" dot={false} connectNulls />
-              <Line type="monotone" dataKey="tts" name="TTS" stroke="#f59e0b" dot={false} connectNulls />
-              <Line type="monotone" dataKey="chat" name="Chat" stroke="#a855f7" dot={false} connectNulls />
+              <Line type="monotone" dataKey="stt" name="STT" stroke={colors.accent} dot={false} connectNulls />
+              <Line type="monotone" dataKey="llm" name="LLM" stroke={colors.green} dot={false} connectNulls />
+              <Line type="monotone" dataKey="tts" name="TTS" stroke={colors.orange} dot={false} connectNulls />
+              <Line type="monotone" dataKey="chat" name="Chat" stroke={colors.violet} dot={false} connectNulls />
             </LineChart>
           </ResponsiveContainer>
-        </div>
+        </Panel>
       )}
 
       {turnStats.sample_count === 0 && (
-        <div className="text-center text-gray-500 py-8">No turns recorded yet this session.</div>
+        <EmptyState center>No turns recorded yet this session.</EmptyState>
       )}
     </div>
   )
