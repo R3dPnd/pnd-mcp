@@ -1,1 +1,29 @@
 /* Akane-only styles, one commented section per component. Library tokens only. */
+
+/* ── ChatPanel ───────────────────────────────────────────────────────────── */
+.chat { display: flex; height: 100%; }
+.chat-streams { display: flex; flex-direction: column; width: 256px; flex-shrink: 0; border-right: 1px solid var(--line); }
+.chat-streams__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.chat-streams__title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.chat-streams__list { flex: 1; overflow-y: auto; }
+.chat-newform { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); }
+.chat-newform__actions { display: flex; gap: 8px; }
+.chat-stream { display: flex; align-items: flex-start; gap: 4px; padding-right: 6px; border-bottom: 1px solid var(--line); }
+.chat-stream:hover { background: var(--panel-2); }
+.chat-stream.is-active { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--accent); }
+.chat-stream__open { flex: 1; min-width: 0; padding: 8px 12px; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.chat-stream__name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; min-width: 0; }
+.chat-stream__text, .chat-stream__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-stream__meta { font-size: 10px; color: var(--muted); }
+.chat-stream__delete { margin-top: 4px; opacity: 0; }
+.chat-stream:hover .chat-stream__delete, .chat-stream__delete:focus-visible { opacity: 1; }
+.chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+.chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+.chat-head__title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-head__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--ink); }
+.chat-head__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.chat-messages { flex: 1; }
+.chat-composer { padding: 12px; border-top: 1px solid var(--line); }
+/* Keep the speaker button visible while it is reading. */
+.msg__actions:has(.is-active) { opacity: 1; }
