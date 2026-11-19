@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
-import { Card, IconButton, Tabs } from 'pnd-lib-react'
+import { IconButton, Tabs } from 'pnd-lib-react'
 import { useDannStore } from '../hooks/useDannState'
 import type { TerminalSession } from '../types'
 
@@ -59,25 +59,23 @@ export function TerminalIndicator() {
 
       {open && (
         <div className="term-overlay" onClick={() => setOpen(false)}>
-          <Card className="term-modal">
-            <div onClick={(e) => e.stopPropagation()} className="term-modal__inner">
-              <div className="term-modal__head">
-                <Tabs
-                  size="sm"
-                  label="Terminal sessions"
-                  tabs={dannTerminals.map((t) => ({ id: t.session_id, label: label(t) }))}
-                  active={selected.session_id}
-                  onChange={setSelectedId}
-                />
-                <IconButton label="Close" onClick={() => setOpen(false)}>×</IconButton>
-              </div>
-              <div className="term-modal__body">
-                <Suspense fallback={<div className="term-modal__loading">Loading terminal…</div>}>
-                  <TerminalPane key={selected.session_id} sessionId={selected.session_id} isActive />
-                </Suspense>
-              </div>
+          <div className="term-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="term-modal__head">
+              <Tabs
+                size="sm"
+                label="Terminal sessions"
+                tabs={dannTerminals.map((t) => ({ id: t.session_id, label: label(t) }))}
+                active={selected.session_id}
+                onChange={setSelectedId}
+              />
+              <IconButton label="Close" onClick={() => setOpen(false)}>×</IconButton>
             </div>
-          </Card>
+            <div className="term-modal__body">
+              <Suspense fallback={<div className="term-modal__loading">Loading terminal…</div>}>
+                <TerminalPane key={selected.session_id} sessionId={selected.session_id} isActive />
+              </Suspense>
+            </div>
+          </div>
         </div>
       )}
     </>
