@@ -17,6 +17,7 @@
 .chat-stream__meta { font-size: 10px; color: var(--muted); }
 .chat-stream__delete { margin-top: 4px; opacity: 0; }
 .chat-stream:hover .chat-stream__delete, .chat-stream__delete:focus-visible { opacity: 1; }
+:root[data-touch="on"] .chat-stream__delete { opacity: 1; }
 .chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
 .chat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); }

@@ -123,8 +123,9 @@ export default function ChatPanel() {
     }
   }
 
-  // Opening another chat always starts at the bottom.
-  useEffect(() => setForceKey((k) => k + 1), [activeId])
+  // Opening another chat always starts at the bottom (once its messages have loaded).
+  const loadedId = active?.id
+  useEffect(() => setForceKey((k) => k + 1), [loadedId])
 
   async function handleCreate(focusArea: string, title: string) {
     setError(null)
@@ -254,7 +255,7 @@ export default function ChatPanel() {
 
           <MessageList
             className="chat-messages"
-            stickKey={active.messages.length + (sending ? 1 : 0)}
+            stickKey={`${active.messages.length}:${sending}`}
             forceKey={forceKey}
             empty={<EmptyState center>No messages yet — say hello.</EmptyState>}
           >
