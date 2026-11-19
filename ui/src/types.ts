@@ -82,7 +82,7 @@ export interface CodeTurn {
 export interface Persona {
   name: string
   wake_phrase: string
-  theme?: string  // persona.theme from config.yaml, e.g. "rose"; empty = original look
+  theme?: string  // persona.theme from config.yaml: "glass" | "arcade"; empty = glass
 }
 
 export interface StateSnapshot {

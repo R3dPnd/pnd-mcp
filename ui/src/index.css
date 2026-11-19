@@ -1,27 +1,10 @@
-@import './theme.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'Silkscreen';
-  src: url('/fonts/Silkscreen-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Silkscreen';
-  src: url('/fonts/Silkscreen-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-}
-
 @layer base {
   body {
     @apply bg-zinc-950 text-zinc-100;
-    font-family: 'Silkscreen', monospace;
     background-image: repeating-linear-gradient(
       0deg,
       transparent,
@@ -140,7 +123,6 @@ header.status-bar {
 
 /* Chart tooltips */
 .recharts-tooltip-wrapper {
-  font-family: 'Silkscreen', monospace !important;
   font-size: 11px !important;
 }
 

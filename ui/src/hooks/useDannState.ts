@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { applyTheme, resolveTheme } from 'pnd-lib-react'
 import type { CodeTurn, FocusArea, LogEntry, MetricSummary, Mode, Module, Persona, PipelineStage, Project, RawEvent, StateSnapshot, TerminalSession, VoiceTurn } from '../types'
 
 const MAX_LOG_ENTRIES = 2000
@@ -376,9 +377,8 @@ export const useDannStore = create<DannStore>((set) => ({
   toggleFocusMode: () => set((s) => ({ focusMode: !s.focusMode })),
   setPersona: (persona) => {
     document.title = persona.name
-    // Colour theme: src/theme.css swaps the identity palette under [data-theme].
-    if (persona.theme) document.documentElement.dataset.theme = persona.theme
-    else delete document.documentElement.dataset.theme
+    // Theme: "glass" | "arcade"; empty or unknown falls back to glass.
+    applyTheme(resolveTheme(persona.theme, 'glass'))
     set({ persona })
   },
 }))
