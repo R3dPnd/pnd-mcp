@@ -1,5 +1,12 @@
 /* Akane-only styles, one commented section per component. Library tokens only. */
 
+/* ── Minimal reset (replaces Tailwind preflight, for elements the UI uses) ── */
+h1, h2, h3, h4, p, ul, ol, pre, figure { margin: 0; }
+ul, ol { list-style: none; padding: 0; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input, select, textarea { font: inherit; color: inherit; margin: 0; }
+img, svg, canvas { display: block; max-width: 100%; }
+
 /* ── ChatPanel ───────────────────────────────────────────────────────────── */
 .chat { display: flex; height: 100%; }
 .chat-streams { display: flex; flex-direction: column; width: 256px; flex-shrink: 0; border-right: 1px solid var(--line); }
@@ -57,6 +64,10 @@
 .status-bar__conn { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .status-bar__conn--off { color: var(--red); animation: status-bar-pulse 1.5s ease-in-out infinite; }
 .status-bar__conn--off .status-bar__dot { background: currentColor; }
+/* Pulsing dot (status bar, module cards). */
+.pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; box-shadow: 0 0 6px currentColor; }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(.85); } }
+@media (prefers-reduced-motion: reduce) { .pulse-dot, .status-bar__stage, .status-bar__conn--off, .activity__caret { animation: none; } }
 @keyframes status-bar-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
 /* ── LeftNav ─────────────────────────────────────────────────────────────── */
