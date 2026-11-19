@@ -286,7 +286,12 @@
 .mod-card__main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .mod-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink); }
 .mod-card__desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
-.mod-card .banner { margin: 0 16px 8px; }
+:root[data-theme="glass"] .mod-card .banner { margin: 0 16px 8px; }
+:root[data-theme="glass"] .fa-card__body .banner { margin: 0; }
+:root[data-theme="glass"] .pb__scroll .banner { margin: 8px 0 0; }
+:root[data-theme="glass"] .pb__build .spinner { color: inherit; }
+:root[data-theme="glass"] .task-row .icon-btn,
+:root[data-theme="glass"] .fa-note__side .icon-btn { width: 22px; height: 22px; }
 
 /* Notes repositories */
 :root[data-theme="glass"] .card.note-card { display: flex; flex-direction: column; min-width: 0; padding: 12px 16px; }
