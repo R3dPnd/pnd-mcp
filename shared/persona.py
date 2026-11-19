@@ -32,7 +32,7 @@ class Persona:
     data_dir: Path = Path("~/.dann")
     api_port: int = 8000
     ui_port: int = 3000
-    theme: str = ""  # dashboard colour theme; "" = the original look
+    theme: str = ""  # "" = glass (resolved by the UI); valid values: glass | arcade
 
 
 def persona_from_config(cfg: dict[str, Any] | None) -> Persona:

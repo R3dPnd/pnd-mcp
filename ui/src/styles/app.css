@@ -34,7 +34,6 @@ img, svg, canvas { display: block; max-width: 100%; }
 .chat-head__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; color: var(--ink); }
 .chat-head__actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .chat-messages { flex: 1; }
-.chat-composer { padding: 12px; border-top: 1px solid var(--line); }
 /* Keep the speaker button visible while it is reading. */
 .msg__actions:has(.is-active) { opacity: 1; }
 
@@ -372,7 +371,6 @@ img, svg, canvas { display: block; max-width: 100%; }
 .log-filters__count { margin-left: auto; font-size: 12px; color: var(--muted); }
 :root[data-theme="glass"] .log-filters .control input,
 :root[data-theme="glass"] .log-filters .control select { padding: 3px 8px; font-size: 12px; }
-:root[data-theme="glass"] .log-filters .checkbox { font-size: 12px; }
 .log-entries { overflow-y: auto; max-height: 280px; }
 .log-row { padding: 6px 12px; font-family: var(--mono); font-size: 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .log-row:hover { background: var(--panel-2); }
@@ -407,6 +405,6 @@ img, svg, canvas { display: block; max-width: 100%; }
 .devjobs__task { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .devjobs__time { flex-shrink: 0; color: var(--muted); }
 /* Job statuses the library badge doesn't know: same look as its error / stopped / idle. */
-:root[data-theme="glass"] .status--failed { --edge: var(--red); color: var(--red); }
-:root[data-theme="glass"] .status--timed_out { --edge: var(--orange); color: var(--orange); }
+:root[data-theme="glass"] .status--failed { --edge: var(--red); color: var(--red); border-color: color-mix(in srgb, var(--edge) 50%, transparent); }
+:root[data-theme="glass"] .status--timed_out { --edge: var(--orange); color: var(--orange); border-color: color-mix(in srgb, var(--edge) 50%, transparent); }
 :root[data-theme="glass"] .status--killed { color: var(--muted); }

@@ -168,10 +168,10 @@ export default function SystemPanel() {
       {latencyData.length > 1 && (
         <Panel title={`Latency — last ${latencyData.length} turns (${turnStats.sample_count} in buffer)`}>
           <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={latencyData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+            <LineChart data={latencyData} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
               <XAxis dataKey="index" tick={{ fontSize: 10, fill: colors.axis }} />
-              <YAxis tick={{ fontSize: 10, fill: colors.axis }} unit="ms" />
+              <YAxis width={56} tick={{ fontSize: 10, fill: colors.axis }} unit="ms" />
               <Tooltip {...tooltipStyle} />
               <Line type="monotone" dataKey="stt" name="STT" stroke={colors.accent} dot={false} connectNulls />
               <Line type="monotone" dataKey="llm" name="LLM" stroke={colors.green} dot={false} connectNulls />

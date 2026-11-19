@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Checkbox, EmptyState, IconButton, Panel, TextInput } from 'pnd-lib-react'
+import { Button, Checkbox, EmptyState, IconButton, Panel, TextInput, isSendKey } from 'pnd-lib-react'
 
 interface Task {
   id: string
@@ -78,7 +78,7 @@ export function TasksPanel() {
         <TextInput
           value={newText}
           onChange={setNewText}
-          onKeyDown={e => { if (e.key === 'Enter') addTask() }}
+          onKeyDown={e => { if (isSendKey({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing })) addTask() }}
           placeholder="new task…"
         />
         </div>
