@@ -1,40 +1,16 @@
 import { useEffect, useRef } from 'react'
+import { CopyButton, StatusBadge, relTime } from 'pnd-lib-react'
 import type { CodeTurn } from '../types'
 
 interface Props {
   turns: CodeTurn[]
 }
 
-function StatusBadge({ status }: { status: CodeTurn['status'] }) {
-  const styles = {
-    ok:    'bg-green-900 text-green-300',
-    error: 'bg-red-900 text-red-300',
-    empty: 'bg-zinc-700 text-zinc-400',
-  }
-  return (
-    <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${styles[status]}`}>
-      {status}
-    </span>
-  )
-}
-
-function relativeTime(date: Date): string {
-  const secs = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (secs < 60) return `${secs}s ago`
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
-  return `${Math.floor(secs / 3600)}h ago`
-}
-
-function CopyButton({ text }: { text: string }) {
-  const copy = () => navigator.clipboard.writeText(text).catch(() => {})
-  return (
-    <button
-      onClick={copy}
-      className="rounded px-2 py-0.5 text-[10px] text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
-    >
-      copy
-    </button>
-  )
+// Map turn statuses onto the library badge's running|done|error|stopped|idle.
+const BADGE_STATUS: Record<CodeTurn['status'], string> = {
+  ok: 'done',
+  error: 'error',
+  empty: 'idle',
 }
 
 export function TerminalOutput({ turns }: Props) {
@@ -46,39 +22,39 @@ export function TerminalOutput({ turns }: Props) {
 
   if (turns.length === 0) {
     return (
-      <p className="px-3 py-4 text-xs text-zinc-600">
+      <p className="term-out__empty">
         No turns yet — enter code mode for this project to see output here.
       </p>
     )
   }
 
   return (
-    <div className="max-h-96 overflow-y-auto">
+    <div className="term-out">
       {turns.map((turn) => (
-        <div key={turn.id} className="border-t border-zinc-800 px-3 py-3 text-xs">
+        <div key={turn.id} className="term-out__turn">
           {/* Header row */}
-          <div className="mb-1.5 flex items-center gap-2 text-zinc-500">
-            <span title={turn.timestamp.toISOString()}>{relativeTime(turn.timestamp)}</span>
-            <StatusBadge status={turn.status} />
+          <div className="term-out__head">
+            <span title={turn.timestamp.toISOString()}>{relTime(turn.timestamp.getTime())}</span>
+            <StatusBadge status={BADGE_STATUS[turn.status]} />
             <span>{turn.latencyMs}ms</span>
           </div>
 
           {/* Task (user voice input) */}
-          <p className="mb-1 font-mono text-zinc-400">
-            <span className="text-zinc-600">› </span>
+          <p className="term-out__task">
+            <span className="term-out__prompt">› </span>
             {turn.task}
           </p>
 
           {/* Response */}
           {turn.response ? (
-            <div className="group relative rounded bg-zinc-900 p-2">
-              <pre className="whitespace-pre-wrap font-mono text-zinc-200">{turn.response}</pre>
-              <div className="absolute right-1 top-1 opacity-0 group-hover:opacity-100">
-                <CopyButton text={turn.response} />
+            <div className="term-out__response">
+              <pre>{turn.response}</pre>
+              <div className="term-out__copy">
+                <CopyButton text={turn.response} label="copy" />
               </div>
             </div>
           ) : (
-            <p className="italic text-zinc-600">
+            <p className="term-out__none">
               {turn.status === 'error' ? 'Error — no response returned.' : 'Empty response.'}
             </p>
           )}

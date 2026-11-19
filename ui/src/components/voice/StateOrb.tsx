@@ -9,19 +9,19 @@ const EQ_BARS: { delay: string; duration: string }[] = [
 ]
 
 export function StateOrb({ stage, active, size = 88 }: { stage: PipelineStage; active: boolean; size?: number }) {
-  const style = { '--dann-orb-size': `${size}px` } as React.CSSProperties
+  const style = { '--voice-orb-size': `${size}px` } as React.CSSProperties
 
-  if (!active) return <div className="dann-orb dann-orb-idle" style={style} />
+  if (!active) return <div className="voice-orb voice-orb--idle" style={style} />
 
   if (stage === 'speaking') {
     return (
-      <div className="dann-equalizer" style={style}>
+      <div className="voice-eq" style={style}>
         {EQ_BARS.map((b, i) => (
-          <div key={i} className="dann-eq-bar" style={{ animationDelay: b.delay, animationDuration: b.duration }} />
+          <div key={i} className="voice-eq__bar" style={{ animationDelay: b.delay, animationDuration: b.duration }} />
         ))}
       </div>
     )
   }
 
-  return <div className={`dann-orb dann-orb-${stage}`} style={style} />
+  return <div className={`voice-orb voice-orb--${stage}`} style={style} />
 }

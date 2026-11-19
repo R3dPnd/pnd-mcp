@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
+import { Card, IconButton, Tabs } from 'pnd-lib-react'
 import { useDannStore } from '../hooks/useDannState'
 import type { TerminalSession } from '../types'
 
@@ -6,7 +7,7 @@ const TerminalPane = lazy(() => import('./TerminalPane'))
 
 function TerminalIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+    <svg viewBox="0 0 24 24" className="term-icon" fill="none" stroke="currentColor" strokeWidth={2}>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M7 9l3 3-3 3M13 15h4" />
     </svg>
@@ -41,57 +42,42 @@ export function TerminalIndicator() {
 
   return (
     <>
-      <button
+      <IconButton
+        label={`${personaName} is using Claude Code — click to watch`}
         onClick={() => setOpen(true)}
-        title={`${personaName} is using Claude Code — click to watch`}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-zinc-900 px-3 py-2 text-emerald-400 shadow-lg hover:bg-zinc-800"
+        className="term-fab"
       >
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+        <span className="term-fab__dot">
+          <span className="term-fab__ping" />
+          <span className="term-fab__core" />
         </span>
         <TerminalIcon />
         {dannTerminals.length > 1 && (
-          <span className="text-xs font-medium">{dannTerminals.length}</span>
+          <span className="term-fab__count">{dannTerminals.length}</span>
         )}
-      </button>
+      </IconButton>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={() => setOpen(false)}>
-          <div
-            className="flex h-full max-h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {dannTerminals.map((t) => (
-                  <button
-                    key={t.session_id}
-                    onClick={() => setSelectedId(t.session_id)}
-                    className={`shrink-0 rounded px-2 py-1 text-xs ${
-                      t.session_id === selected.session_id
-                        ? 'bg-emerald-900/40 text-emerald-300'
-                        : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
-                    }`}
-                  >
-                    {label(t)}
-                  </button>
-                ))}
+        <div className="term-overlay" onClick={() => setOpen(false)}>
+          <Card className="term-modal">
+            <div onClick={(e) => e.stopPropagation()} className="term-modal__inner">
+              <div className="term-modal__head">
+                <Tabs
+                  size="sm"
+                  label="Terminal sessions"
+                  tabs={dannTerminals.map((t) => ({ id: t.session_id, label: label(t) }))}
+                  active={selected.session_id}
+                  onChange={setSelectedId}
+                />
+                <IconButton label="Close" onClick={() => setOpen(false)}>×</IconButton>
               </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="shrink-0 text-zinc-500 hover:text-zinc-300"
-                title="Close"
-              >
-                ×
-              </button>
+              <div className="term-modal__body">
+                <Suspense fallback={<div className="term-modal__loading">Loading terminal…</div>}>
+                  <TerminalPane key={selected.session_id} sessionId={selected.session_id} isActive />
+                </Suspense>
+              </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              <Suspense fallback={<div className="p-4 text-xs text-zinc-500">Loading terminal…</div>}>
-                <TerminalPane key={selected.session_id} sessionId={selected.session_id} isActive />
-              </Suspense>
-            </div>
-          </div>
+          </Card>
         </div>
       )}
     </>
