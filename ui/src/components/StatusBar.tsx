@@ -1,36 +1,33 @@
 import { useState } from 'react'
+import { Button, Tag, type Tone } from 'pnd-lib-react'
 import { useDannStore } from '../hooks/useDannState'
 import { api } from '../lib/api'
 import type { Mode, PipelineStage } from '../types'
 
 interface ModeConfig {
   label: string
-  pillClass: string
+  tone: Tone
   dot: boolean
 }
 
 function modeConfig(mode: Mode, project: string | null): ModeConfig {
   switch (mode) {
     case 'normal':
-      return { label: 'Listening', pillClass: 'bg-green-600 text-green-50', dot: true }
+      return { label: 'Listening', tone: 'green', dot: true }
     case 'code':
-      return {
-        label: `Code${project ? `: ${project}` : ''}`,
-        pillClass: 'bg-violet-600 text-violet-100',
-        dot: false,
-      }
+      return { label: `Code${project ? `: ${project}` : ''}`, tone: 'violet', dot: false }
     case 'idle':
     default:
-      return { label: 'Idle', pillClass: 'bg-zinc-700 text-zinc-300', dot: false }
+      return { label: 'Idle', tone: 'muted', dot: false }
   }
 }
 
-const STAGE_CONFIG: Record<PipelineStage, { label: string; color: string }> = {
-  idle:        { label: '',            color: '' },
-  wake:        { label: '⚡ Wake',     color: 'text-neon-orange' },
-  recording:   { label: '● REC',       color: 'text-neon-red' },
-  thinking:    { label: '… Thinking',  color: 'text-neon-blue' },
-  speaking:    { label: '▶ Speaking',  color: 'text-neon-green' },
+const STAGE_CONFIG: Record<PipelineStage, { label: string; tone: Tone }> = {
+  idle:        { label: '',            tone: 'muted' },
+  wake:        { label: '⚡ Wake',     tone: 'orange' },
+  recording:   { label: '● REC',       tone: 'red' },
+  thinking:    { label: '… Thinking',  tone: 'blue' },
+  speaking:    { label: '▶ Speaking',  tone: 'green' },
 }
 
 export function StatusBar() {
@@ -60,61 +57,54 @@ export function StatusBar() {
   }
 
   return (
-    <header className="status-bar sticky top-0 z-30 flex items-center justify-between bg-zinc-950/90 px-4 py-2 backdrop-blur">
+    <header className="status-bar">
       {/* Left: app name */}
-      <span className="text-sm font-semibold tracking-wide text-neon-blue">{personaName}</span>
+      <span className="status-bar__name">{personaName}</span>
 
       {/* Centre: mode pill + pipeline stage */}
-      <div className="flex items-center gap-3">
-        <span
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${cfg.pillClass}`}
-        >
-          {cfg.dot && (
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-300 pulse-dot" />
-          )}
-          {cfg.label}
+      <div className="status-bar__group">
+        <span className="status-bar__mode">
+          {cfg.dot && <span className="status-bar__dot pulse-dot" />}
+          <Tag tone={cfg.tone}>{cfg.label}</Tag>
         </span>
 
         {stage.label && (
-          <span className={`text-xs font-medium ${stage.color} animate-pulse`}>
-            {stage.label}
+          <span className="status-bar__stage">
+            <Tag tone={stage.tone}>{stage.label}</Tag>
           </span>
         )}
       </div>
 
       {/* Right: active modules + restart + WS connection indicator */}
-      <div className="flex items-center gap-3">
+      <div className="status-bar__group">
         {activeModules.length > 0 && (
-          <div className="flex items-center gap-1.5" title={`Modules ${personaName} currently has active`}>
+          <div className="status-bar__modules" title={`Modules ${personaName} currently has active`}>
             {activeModules.map((m) => (
-              <span
-                key={m.name}
-                className="flex items-center gap-1 rounded-full bg-blue-950/40 px-2 py-0.5 text-[10px] text-blue-300"
-              >
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400 pulse-dot" />
+              <span key={m.name} className="status-bar__module">
+                <span className="status-bar__dot pulse-dot" />
                 {m.name}
               </span>
             ))}
           </div>
         )}
 
-        <button
+        <Button
+          variant="link"
           onClick={handleRestart}
           disabled={restarting}
           title={`Restart ${personaName}`}
-          className="text-xs text-zinc-600 hover:text-zinc-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {restarting ? 'restarting…' : '⟳'}
-        </button>
+        </Button>
 
         {wsConnected ? (
-          <div className="flex items-center gap-1.5 text-xs text-zinc-600">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500/70" />
+          <div className="status-bar__conn">
+            <span className="status-bar__dot status-bar__dot--ok" />
             connected
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-xs text-neon-red animate-pulse">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+          <div className="status-bar__conn status-bar__conn--off">
+            <span className="status-bar__dot" />
             offline
           </div>
         )}

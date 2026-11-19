@@ -28,3 +28,45 @@
 .chat-composer { padding: 12px; border-top: 1px solid var(--line); }
 /* Keep the speaker button visible while it is reading. */
 .msg__actions:has(.is-active) { opacity: 1; }
+
+/* ── App shell ───────────────────────────────────────────────────────────── */
+.app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.app.is-focus { visibility: hidden; pointer-events: none; }
+.app-tabs { display: flex; align-items: center; gap: 8px; padding: 6px 12px; flex-shrink: 0; overflow-x: auto; background: var(--surface-bar); border-bottom: 1px solid var(--line); }
+.app-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.app-main { flex: 1; position: relative; overflow: hidden; }
+/* Panes stay mounted (canvas contexts survive); hide with opacity, never display:none. */
+.app-pane { position: absolute; inset: 0; overflow: hidden; }
+.app-pane--scroll { overflow-y: auto; }
+.app-pane.is-hidden { opacity: 0; pointer-events: none; }
+.app-page { margin: 0 auto; max-width: 56rem; padding: 16px; }
+
+/* ── StatusBar ───────────────────────────────────────────────────────────── */
+.status-bar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--surface-bar); border-bottom: 1px solid var(--line); backdrop-filter: blur(var(--blur)); }
+.status-bar__name { font-size: 14px; font-weight: 600; letter-spacing: .04em; color: var(--ink); }
+.status-bar__group { display: flex; align-items: center; gap: 12px; }
+.status-bar__mode { display: inline-flex; align-items: center; gap: 6px; }
+.status-bar__stage { animation: status-bar-pulse 1.5s ease-in-out infinite; }
+.status-bar__dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); color: var(--green); }
+.status-bar__dot--ok { opacity: .7; }
+.status-bar__modules { display: flex; align-items: center; gap: 6px; }
+.status-bar__module { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 10px; color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
+.status-bar__module .status-bar__dot { background: var(--blue); color: var(--blue); }
+.status-bar__conn { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.status-bar__conn--off { color: var(--red); animation: status-bar-pulse 1.5s ease-in-out infinite; }
+.status-bar__conn--off .status-bar__dot { background: currentColor; }
+@keyframes status-bar-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* ── LeftNav ─────────────────────────────────────────────────────────────── */
+.left-nav { display: flex; flex-shrink: 0; height: 100%; }
+.left-nav__drawer { overflow: hidden; width: 0; background: var(--surface-bar); border-right: 1px solid var(--line); transition: width .2s ease-in-out; }
+.left-nav__drawer.is-open { width: 288px; }
+.left-nav__inner { width: 288px; height: 100%; }
+.left-nav__icon { width: 16px; height: 16px; }
+
+/* ── FocusMode ───────────────────────────────────────────────────────────── */
+.focus-mode { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; background: radial-gradient(110% 80% at 0% 0%, #5a0f24 0%, #2a0f3a 45%, #120a1f 100%); color: var(--ink); backdrop-filter: blur(var(--blur)); }
+.focus-mode__bar { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 8px 16px; background: var(--surface-bar); border-bottom: 1px solid var(--line); }
+.focus-mode__title { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.focus-mode__body { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; overflow-y: auto; padding: 32px 0; }
+.focus-mode__log { flex-shrink: 0; }

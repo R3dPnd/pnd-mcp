@@ -1,4 +1,5 @@
 import { Suspense, lazy, useState } from 'react'
+import { EmptyState, IconButton, Tabs } from 'pnd-lib-react'
 import { useDannEvents } from './hooks/useDannEvents'
 import { useFocusModeShortcut } from './hooks/useFocusModeShortcut'
 import { useDannStore } from './hooks/useDannState'
@@ -48,87 +49,66 @@ export default function App() {
   const tabs: Tab[] = ['dann', 'focus', 'modules', 'notes', 'metrics', 'system']
   const [activeTabId, setActiveTabId] = useState<Tab>('dann')
 
+  const tabItems = tabs.map((t) => ({ id: t, label: tabLabel(t, personaName) }))
+  const loading = <EmptyState>Loading…</EmptyState>
+  const pane = (id: Tab, scroll: boolean) =>
+    `app-pane ${scroll ? 'app-pane--scroll' : ''} ${activeTabId === id ? '' : 'is-hidden'}`
+
   return (
     <>
-    <div className={`h-screen flex flex-col bg-zinc-950 overflow-hidden ${focusMode ? 'invisible pointer-events-none' : ''}`}>
+    <div className={`app ${focusMode ? 'is-focus' : ''}`}>
       <StatusBar />
 
-      {/* Tab bar */}
-      <nav className="flex items-end border-b border-gray-800 bg-gray-900 px-2 overflow-x-auto shrink-0">
-        {tabs.map((tab) => {
-          const isActive = tab === activeTabId
-          const isDannTab = tab === 'dann'
-
-          return (
-            <div
-              key={tab}
-              className={`group flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px cursor-pointer whitespace-nowrap transition-colors ${
-                isActive
-                  ? isDannTab ? 'border-teal-400 text-teal-300' : 'border-blue-500 text-white'
-                  : isDannTab ? 'border-transparent text-teal-600 hover:text-teal-400' : 'border-transparent text-gray-400 hover:text-gray-200'
-              }`}
-              onClick={() => setActiveTabId(tab)}
-            >
-              {isDannTab && (
-                <span className="text-[10px] font-mono text-teal-500">{'>'}_</span>
-              )}
-              {isDannTab && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); setFocusMode(true) }}
-                  title="Enter Focus Mode (Cmd/Ctrl+Shift+F)"
-                  className="ml-1 text-[9px] text-teal-700 hover:text-teal-400 transition-colors leading-none"
-                >
-                  ⛶
-                </button>
-              )}
-              {tabLabel(tab, personaName)}
-            </div>
-          )
-        })}
-      </nav>
+      {/* Tab bar. The persona tab's focus-mode button sits beside the tabs. */}
+      <div className="app-tabs">
+        <Tabs tabs={tabItems} active={activeTabId} onChange={setActiveTabId} label="Sections" />
+        <IconButton label="Enter Focus Mode (Cmd/Ctrl+Shift+F)" onClick={() => setFocusMode(true)}>
+          ⛶
+        </IconButton>
+      </div>
 
       {/* Body: left nav + tab content + persistent voice panel */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="app-body">
       <LeftNav />
 
       {/* Tab content — all panels stacked absolutely so display:none never nukes canvas contexts */}
-      <main className="flex-1 overflow-hidden relative">
+      <main className="app-main">
 
-        {/* DANN — chat with Dann + the live terminal for whichever work stream's focus area is active */}
-        <div className={`absolute inset-0 overflow-hidden ${activeTabId === 'dann' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
+        {/* Chat with the persona + the live terminal for whichever work stream's focus area is active */}
+        <div className={pane('dann', false)}>
+          <Suspense fallback={loading}>
             <ChatPanel />
           </Suspense>
         </div>
 
-        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'focus' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <div className="mx-auto max-w-4xl px-4 py-4">
+        <div className={pane('focus', true)}>
+          <div className="app-page">
             <FocusAreasPanel />
           </div>
         </div>
 
-        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'modules' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <div className="mx-auto max-w-4xl px-4 py-4">
+        <div className={pane('modules', true)}>
+          <div className="app-page">
             <ModulesPanel />
           </div>
         </div>
 
-        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'notes' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <div className="mx-auto max-w-4xl px-4 py-4">
-            <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
+        <div className={pane('notes', true)}>
+          <div className="app-page">
+            <Suspense fallback={loading}>
               <NotesPanel />
             </Suspense>
           </div>
         </div>
 
-        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'metrics' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
+        <div className={pane('metrics', true)}>
+          <Suspense fallback={loading}>
             <MetricsPage />
           </Suspense>
         </div>
 
-        <div className={`absolute inset-0 overflow-y-auto ${activeTabId === 'system' ? '' : 'opacity-0 pointer-events-none'}`}>
-          <Suspense fallback={<div className="p-8 text-gray-500 text-sm">Loading…</div>}>
+        <div className={pane('system', true)}>
+          <Suspense fallback={loading}>
             <SystemPanel />
           </Suspense>
         </div>
